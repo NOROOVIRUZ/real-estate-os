@@ -6,6 +6,18 @@
    실거래(국토부)는 수집기가 data.json에 미리 넣어줌 → 프론트는 표시만
    ============================================================ */
 
+// ---------- API 베이스 ----------
+// 기본: 같은 오리진(Worker가 프론트도 서빙) → 상대경로 '/api/*'
+// 로컬 개발: ?api=https://my-worker.dev 로 오버라이드
+const API_BASE = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get('api');
+    if (q) return q.replace(/\/+$/, ''); // 끝 슬래시 제거
+  } catch {}
+  return '';
+})();
+function apiUrl(path) { return API_BASE + path; }
+
 // ---------- localStorage 헬퍼 ----------
 const LS = {
   get(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch { return d; } },
@@ -23,6 +35,8 @@ const K = {
 const state = {
   complexes: [],
   isSample: false,
+  dataEmpty: false,   // API가 응답했지만 complexes가 빈 배열 (수집 전)
+  busy: false,        // collect/add 진행 중 (중복 클릭 방지)
   selectedNo: null,
   filter: '',
   sort: 'rating_desc',
@@ -61,30 +75,42 @@ function normName(s) { return (s || '').replace(/\s+/g, '').toLowerCase(); }
 //  데이터 로드
 // ============================================================
 async function loadData() {
+  // 1) Worker API 우선
   try {
-    const res = await fetch('./data.json', { cache: 'no-store' });
+    const res = await fetch(apiUrl('/api/data'), { cache: 'no-store' });
     if (res.ok) {
       const json = await res.json();
-      if (json && Array.isArray(json.complexes) && json.complexes.length) {
-        state.complexes = json.complexes;
+      if (json && Array.isArray(json.complexes)) {
+        if (json.complexes.length) {
+          state.complexes = json.complexes;
+          state.isSample = false;
+          state.dataEmpty = false;
+          return;
+        }
+        // API는 살아있지만 아직 수집된 단지가 없음 → 빈 상태 안내
+        state.complexes = [];
         state.isSample = false;
+        state.dataEmpty = true;
         return;
       }
     }
-  } catch { /* fallthrough to sample */ }
+  } catch { /* API 미도달 → 샘플 폴백 */ }
 
+  // 2) 샘플 폴백 (API 미배포/오프라인 개발용)
   try {
     const res = await fetch('./data.sample.json', { cache: 'no-store' });
     if (res.ok) {
       const json = await res.json();
       state.complexes = json.complexes || [];
       state.isSample = true;
+      state.dataEmpty = false;
       return;
     }
   } catch { /* nothing */ }
 
   state.complexes = [];
   state.isSample = false;
+  state.dataEmpty = false;
 }
 
 // ============================================================
@@ -113,9 +139,15 @@ function renderList() {
   if (state.complexes.length === 0) {
     wrap.innerHTML = '';
     empty.hidden = false;
-    empty.innerHTML = `<div class="ph-emoji">📭</div>
-      <div class="ph-title">아직 수집된 데이터가 없어</div>
-      <div class="ph-sub">터미널에서 수집기를 실행하세요</div>`;
+    if (state.dataEmpty) {
+      empty.innerHTML = `<div class="ph-emoji">📭</div>
+        <div class="ph-title">아직 수집된 데이터가 없어</div>
+        <div class="ph-sub">＋ 단지 추가로 관심 단지를 등록하고<br />🔄 호가 갱신을 누르세요</div>`;
+    } else {
+      empty.innerHTML = `<div class="ph-emoji">📡</div>
+        <div class="ph-title">데이터를 불러오지 못했어</div>
+        <div class="ph-sub">＋ 단지 추가로 시작하거나<br />🔄 호가 갱신을 눌러 다시 시도해</div>`;
+    }
     return;
   }
   empty.hidden = true;
@@ -133,11 +165,21 @@ function renderList() {
       </div>
       <span class="item-rating">${r ? '★'.repeat(r) : ''}</span>
       ${check}
+      <button class="item-remove" data-remove="${escapeHtml(c.complexNo)}" title="관심 단지에서 삭제" aria-label="삭제">✕</button>
     </div>`;
   }).join('');
 
   wrap.querySelectorAll('.complex-item').forEach((el) => {
-    el.addEventListener('click', () => onItemClick(el.dataset.no));
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.item-remove')) return; // 삭제 버튼은 별도 처리
+      onItemClick(el.dataset.no);
+    });
+  });
+  wrap.querySelectorAll('.item-remove').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeComplex(btn.dataset.remove);
+    });
   });
 }
 
@@ -191,8 +233,15 @@ function renderDetail(no) {
         ${c.useApproveYmd ? `<span class="d-chip">준공 ${fmtYmd(c.useApproveYmd)}</span>` : ''}
         ${c.lawdCd ? `<span class="d-chip">코드 ${escapeHtml(c.lawdCd)}</span>` : ''}
       </div>
-      <div class="rating-stars" id="ratingStars">
-        ${[1,2,3,4,5].map((i) => `<span class="star${i <= r ? ' on' : ''}" data-v="${i}">★</span>`).join('')}
+      <div class="d-controls-row">
+        <div class="rating-stars" id="ratingStars">
+          ${[1,2,3,4,5].map((i) => `<span class="star${i <= r ? ' on' : ''}" data-v="${i}">★</span>`).join('')}
+        </div>
+        <div class="pin-picker" id="pinPicker" title="핀 색상">
+          ${['red','yellow','green','blue'].map((col) =>
+            `<button type="button" class="pin-swatch pin-${col}${(c.pinColor || 'red') === col ? ' on' : ''}" data-pin="${col}" aria-label="${col}"></button>`
+          ).join('')}
+        </div>
       </div>
     </div>
 
@@ -245,6 +294,11 @@ function renderDetail(no) {
       renderDetail(no);
       renderList();
     });
+  });
+
+  // 핀 색상
+  body.querySelectorAll('#pinPicker .pin-swatch').forEach((el) => {
+    el.addEventListener('click', () => setPinColor(c.complexNo, el.dataset.pin));
   });
 
   // 목표가
@@ -492,6 +546,159 @@ function saveSettings() {
 }
 
 // ============================================================
+//  토스트
+// ============================================================
+function toast(msg, type = 'info', ms = 3200) {
+  const wrap = $('toastWrap');
+  if (!wrap) return;
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  // 진입 애니메이션
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 250);
+  }, ms);
+}
+
+// 데이터 다시 불러 화면 전체 갱신
+async function reloadAndRender() {
+  await loadData();
+  $('dataBadge').hidden = !state.isSample;
+  renderList();
+  renderMarkers();
+  if (state.selectedNo && state.complexes.some((c) => c.complexNo === state.selectedNo)) {
+    renderDetail(state.selectedNo);
+  } else {
+    state.selectedNo = null;
+    $('detailBody').hidden = true;
+    $('detailEmpty').hidden = false;
+  }
+}
+
+// ============================================================
+//  API 액션: 호가 갱신 / 단지 추가·삭제 / 핀색
+// ============================================================
+function setRefreshBusy(busy) {
+  state.busy = busy;
+  const btn = $('refreshBtn');
+  const sp = $('refreshSpinner');
+  const label = $('refreshLabel');
+  if (!btn) return;
+  btn.disabled = busy;
+  btn.classList.toggle('busy', busy);
+  if (sp) sp.hidden = !busy;
+  if (label) label.textContent = busy ? '갱신 중…' : '🔄 호가 갱신';
+}
+
+async function doCollect() {
+  if (state.busy) return;
+  setRefreshBusy(true);
+  toast('호가 수집 중… 최대 30초 걸려', 'info', 4000);
+  try {
+    const res = await fetch(apiUrl('/api/collect'), { method: 'POST' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json().catch(() => ({}));
+    await reloadAndRender();
+    const count = json.count != null ? json.count : state.complexes.length;
+    const secs = json.ms != null ? (json.ms / 1000).toFixed(1) : '?';
+    toast(`✅ ${count}개 단지 갱신 완료 (${secs}초)`, 'success');
+  } catch (err) {
+    toast(`❌ 갱신 실패: ${err.message || err}`, 'error', 5000);
+  } finally {
+    setRefreshBusy(false);
+  }
+}
+
+function setAddBusy(busy) {
+  const btn = $('addSubmit');
+  const sp = $('addSpinner');
+  const label = $('addSubmitLabel');
+  const input = $('addInput');
+  if (!btn) return;
+  btn.disabled = busy;
+  if (input) input.disabled = busy;
+  if (sp) sp.hidden = !busy;
+  if (label) label.textContent = busy ? '추가 중…' : '추가';
+}
+
+async function addComplex() {
+  const input = $('addInput');
+  if (!input) return;
+  const keyword = input.value.trim();
+  if (!keyword) { input.focus(); return; }
+  setAddBusy(true);
+  try {
+    const res = await fetch(apiUrl('/api/watchlist/add'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
+    const name = (json.added && json.added.name) || keyword;
+    input.value = '';
+    $('addForm').hidden = true;
+    await reloadAndRender();
+    toast(`➕ 추가됨: ${name} — 🔄 호가 갱신을 눌러 수집해`, 'success', 4200);
+  } catch (err) {
+    toast(`❌ 추가 실패: ${err.message || err}`, 'error', 5000);
+  } finally {
+    setAddBusy(false);
+  }
+}
+
+async function removeComplex(complexNo) {
+  if (!complexNo) return;
+  const c = state.complexes.find((x) => x.complexNo === complexNo);
+  const name = c ? c.name : complexNo;
+  if (!confirm(`관심 단지에서 삭제할까?\n${name}`)) return;
+  try {
+    const res = await fetch(apiUrl('/api/watchlist/remove'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ complexNo }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
+    if (state.selectedNo === complexNo) state.selectedNo = null;
+    await reloadAndRender();
+    toast(`🗑️ 삭제됨: ${name}`, 'success');
+  } catch (err) {
+    toast(`❌ 삭제 실패: ${err.message || err}`, 'error', 5000);
+  }
+}
+
+async function setPinColor(complexNo, pinColor) {
+  if (!complexNo || !pinColor) return;
+  // 낙관적 반영
+  const c = state.complexes.find((x) => x.complexNo === complexNo);
+  const prev = c ? c.pinColor : null;
+  if (c) c.pinColor = pinColor;
+  renderList();
+  renderMarkers();
+  if (state.selectedNo === complexNo) renderDetail(complexNo);
+  try {
+    const res = await fetch(apiUrl('/api/watchlist/pin'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ complexNo, pinColor }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
+  } catch (err) {
+    // 실패 시 롤백
+    if (c) c.pinColor = prev;
+    renderList();
+    renderMarkers();
+    if (state.selectedNo === complexNo) renderDetail(complexNo);
+    toast(`❌ 핀색 변경 실패: ${err.message || err}`, 'error', 4000);
+  }
+}
+
+// ============================================================
 //  이벤트 바인딩 & 부트
 // ============================================================
 function bindEvents() {
@@ -505,6 +712,20 @@ function bindEvents() {
     si.value = ''; state.filter = ''; $('clearSearch').hidden = true; renderList(); si.focus();
   });
   $('sortSelect').addEventListener('change', (e) => { state.sort = e.target.value; renderList(); });
+
+  // 호가 갱신
+  $('refreshBtn').addEventListener('click', doCollect);
+
+  // 단지 추가 토글 + 제출
+  $('addToggle').addEventListener('click', () => {
+    const form = $('addForm');
+    form.hidden = !form.hidden;
+    if (!form.hidden) $('addInput').focus();
+  });
+  $('addSubmit').addEventListener('click', addComplex);
+  $('addInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); addComplex(); }
+  });
 
   $('compareToggle').addEventListener('click', () => setCompareMode(!state.compareMode));
   $('compareClose').addEventListener('click', () => { $('compareModal').hidden = true; });

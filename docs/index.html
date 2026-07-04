@@ -22,6 +22,10 @@
       </div>
       <div class="header-actions">
         <span class="data-badge" id="dataBadge" hidden>샘플 데이터</span>
+        <button class="btn-mode btn-refresh" id="refreshBtn" type="button">
+          <span class="spinner" id="refreshSpinner" hidden></span>
+          <span id="refreshLabel">🔄 호가 갱신</span>
+        </button>
         <button class="btn-mode" id="compareToggle" type="button">⚖️ 비교하기</button>
         <button class="btn-icon" id="settingsBtn" type="button" aria-label="설정">⚙️ 설정</button>
       </div>
@@ -43,16 +47,21 @@
             <option value="name_asc">이름순</option>
           </select>
         </div>
+        <div class="add-box" id="addBox">
+          <button class="btn-add-toggle" id="addToggle" type="button">＋ 단지 추가</button>
+          <div class="add-form" id="addForm" hidden>
+            <input id="addInput" type="text" placeholder="단지명 입력 (예: 철산래미안자이)" autocomplete="off" />
+            <button class="btn-primary btn-add-submit" id="addSubmit" type="button">
+              <span class="spinner" id="addSpinner" hidden></span>
+              <span id="addSubmitLabel">추가</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div class="compare-hint" id="compareHint" hidden>비교할 단지 2개를 선택해</div>
       <div class="result-info"><span id="listCount">—</span></div>
       <div class="complex-list" id="complexList"></div>
       <div class="list-empty" id="listEmpty" hidden></div>
-      <div class="add-note">
-        단지 추가는 터미널에서<br />
-        <code>node collector/collector.js add "단지명"</code><br />
-        실행 후 새로고침
-      </div>
     </aside>
 
     <!-- ===== 중: 지도 ===== -->
@@ -103,7 +112,7 @@
           <a class="field-link" href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com 에서 발급 →</a>
           <p class="field-hint">🔒 developers.kakao.com에서 이 키의 허용 도메인을 등록하면 키가 노출돼도 다른 사이트에서 못 씁니다.</p>
         </div>
-        <p class="settings-desc">국토부 실거래는 수집기(collector/.env)에서 처리됩니다. 브라우저에 국토부 키를 넣지 않아요.</p>
+        <p class="settings-desc">국토부 실거래 키는 서버(Cloudflare Worker)에만 저장돼 처리됩니다. 브라우저에 국토부 키를 넣지 않아요.</p>
         <div class="settings-actions">
           <button class="btn-primary" id="settingsSave" type="button">저장</button>
           <span class="saved-flag" id="settingsSaved" hidden>저장됨 ✓</span>
@@ -111,6 +120,9 @@
       </div>
     </div>
   </div>
+
+  <!-- ===== 토스트 ===== -->
+  <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 
   <script src="./app.js" defer></script>
 </body>

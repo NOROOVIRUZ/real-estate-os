@@ -6,3 +6,9 @@ collector/node_modules/
 # 국토부 API 키 — 절대 커밋 금지 (브라우저·git 노출 0)
 .env
 collector/.env
+
+# worker 산출물
+worker/node_modules/
+worker/.wrangler/
+.dev.vars
+worker/.dev.vars
