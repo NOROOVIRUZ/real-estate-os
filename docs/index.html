@@ -166,7 +166,12 @@
           <a class="field-link" href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com 에서 발급 →</a>
           <p class="field-hint">developers.kakao.com에서 이 키의 허용 도메인을 등록하면 키가 노출돼도 다른 사이트에서 못 씁니다.</p>
         </div>
-        <p class="settings-desc">국토부 실거래 키는 서버(Cloudflare Worker)에만 저장돼 처리됩니다. 브라우저에 국토부 키를 넣지 않아요.</p>
+        <div class="field">
+          <label for="molitKey">국토부 실거래 키 (data.go.kr)</label>
+          <input id="molitKey" type="text" placeholder="예: aBcD1234%2FxY..." autocomplete="off" spellcheck="false" />
+          <a class="field-link" href="https://www.data.go.kr/data/15057511/openapi.do" target="_blank" rel="noopener">data.go.kr · 아파트 매매 실거래가 상세 자료 활용신청 →</a>
+          <p class="field-hint">활용신청 후 <b>일반 인증키(Encoding)</b>를 그대로 붙여넣어. 실거래는 이 키로 <b>브라우저에서 직접</b> 국토부를 조회하고, 결과는 이 기기에만 캐시돼. (국토부 무료 공개키)</p>
+        </div>
         <div class="settings-actions">
           <button class="btn-primary" id="settingsSave" type="button">저장</button>
           <span class="saved-flag" id="settingsSaved" hidden>저장됨 ✓</span>

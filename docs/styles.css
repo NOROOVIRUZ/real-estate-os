@@ -213,6 +213,16 @@ code { font-family: 'Pretendard', ui-monospace, monospace; background: var(--col
   border-radius: var(--radius-input); padding: 14px 16px; text-align: center; line-height: 1.6;
 }
 .notice.warn { color: var(--color-red); background: var(--color-red-soft); }
+.notice .spinner { color: var(--color-accent); vertical-align: -1px; }
+.deals-cta { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.btn-inline-settings {
+  border: none; border-radius: var(--radius-input); cursor: pointer;
+  background: var(--color-accent); color: #fff; font-size: 13px; font-weight: 700;
+  padding: 9px 18px; transition: background 0.15s, transform 0.1s;
+}
+.btn-inline-settings:hover { background: var(--color-accent-hover); }
+.btn-inline-settings:active { transform: scale(0.97); }
+.compare-table .muted { color: var(--color-text-muted); font-weight: 500; font-size: 12px; }
 
 .chart-wrap { background: var(--color-surface); border-radius: 14px; padding: 14px; margin-top: 8px; }
 .chart-wrap svg { width: 100%; height: auto; display: block; }

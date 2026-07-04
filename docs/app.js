@@ -26,6 +26,8 @@ const LS = {
 };
 const K = {
   kakao: 'reos:apikey:kakao',
+  molit: 'reos:apikey:molit',
+  deals: (lawdCd, ym) => `reos:deals:${lawdCd}:${ym}`,
   notes: (no) => `reos:notes:${no}`,
   rating: (no) => `reos:rating:${no}`,
   target: (no) => `reos:target:${no}`,
@@ -470,34 +472,237 @@ function renderDetail(no) {
 }
 
 // ============================================================
-//  실거래 (수집기가 data.json에 넣은 deals 표시 — 국토부 직접조회 없음)
+//  실거래 — 국토부 API 브라우저 직접조회 + localStorage 월별 캐싱
+//  (워커 IP는 국토부 방화벽에 막혀 서버조회 불가 → 사용자 브라우저에서 직접)
 // ============================================================
-function renderDeals(c) {
+const MOLIT_ENDPOINT =
+  'https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev';
+const MOLIT_MONTHS = 6;               // 최근 6개월
+const DEAL_TTL_CURRENT = 6 * 3600e3;  // 당월: 6시간
+const DEAL_TTL_PAST = 30 * 86400e3;   // 지난 달들: 30일
+
+// 상세의 실거래 조회 레이스 가드 (별점/핀 클릭으로 renderDetail 재호출돼도 최신 것만 반영)
+const dealsState = { no: null, token: 0 };
+
+// 이름 정규화 (collector 와 동일 규칙: 숫자·영문·한글만)
+function molitNormName(s) {
+  if (s == null) return '';
+  return String(s).replace(/[^0-9A-Za-z가-힣]/g, '').toLowerCase();
+}
+// 관대한 부분매칭 — 한쪽이 다른 쪽을 포함하면 매칭
+function aptNameMatches(aptNm, name) {
+  const a = molitNormName(aptNm), b = molitNormName(name);
+  if (!a || !b) return false;
+  return a.includes(b) || b.includes(a);
+}
+
+// 오늘 기준 최근 n개월 YYYYMM (최근→과거)
+function recentYmds(n) {
+  const out = [];
+  const now = new Date();
+  let y = now.getFullYear(), m = now.getMonth() + 1;
+  for (let i = 0; i < n; i++) {
+    out.push(String(y) + String(m).padStart(2, '0'));
+    if (--m === 0) { m = 12; y -= 1; }
+  }
+  return out;
+}
+function currentYm() {
+  const now = new Date();
+  return String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, '0');
+}
+
+// 국토부 응답 items.item → 항상 배열 (0/1/N건 정규화)
+function molitItemsToArray(json) {
+  const items = json && json.response && json.response.body && json.response.body.items;
+  if (!items || typeof items !== 'object') return [];
+  const item = items.item;
+  if (!item) return [];
+  return Array.isArray(item) ? item : [item];
+}
+// 단일 item → deals 형식 {date,priceNum,area,floor,buildYear}
+function molitItemToDeal(it) {
+  const priceNum = parseInt(String(it.dealAmount == null ? '' : it.dealAmount).replace(/[^\d]/g, ''), 10);
+  const y = String(it.dealYear == null ? '' : it.dealYear).trim();
+  const mo = String(it.dealMonth == null ? '' : it.dealMonth).trim().padStart(2, '0');
+  const d = String(it.dealDay == null ? '' : it.dealDay).trim().padStart(2, '0');
+  const area = it.excluUseAr != null ? Number(it.excluUseAr) : null;
+  const floor = it.floor != null ? parseInt(String(it.floor).replace(/[^\d-]/g, ''), 10) : null;
+  const buildYear = it.buildYear != null ? parseInt(String(it.buildYear).replace(/[^\d]/g, ''), 10) : null;
+  return {
+    date: y && mo && d ? `${y}-${mo}-${d}` : null,
+    priceNum: Number.isFinite(priceNum) ? priceNum : null,
+    area: Number.isFinite(area) ? area : null,
+    floor: Number.isFinite(floor) ? floor : null,
+    buildYear: Number.isFinite(buildYear) ? buildYear : null,
+  };
+}
+
+// 지역·월 캐시 읽기. 유효(신선)하면 items 배열, 아니면 null.
+function readDealsCache(lawdCd, ym) {
+  const raw = LS.get(K.deals(lawdCd, ym));
+  if (!raw) return null;
+  try {
+    const obj = JSON.parse(raw);
+    if (!obj || !Array.isArray(obj.items)) return null;
+    const ttl = ym === currentYm() ? DEAL_TTL_CURRENT : DEAL_TTL_PAST;
+    if (Date.now() - (obj.savedAt || 0) > ttl) return null; // 만료 → 재조회
+    return obj.items;
+  } catch { return null; }
+}
+function writeDealsCache(lawdCd, ym, items) {
+  LS.set(K.deals(lawdCd, ym), JSON.stringify({ savedAt: Date.now(), items }));
+}
+
+// 지역·월 국토부 조회 (캐시 우선). 반환: item 배열.
+// 실패 시 throw {status, message} — 호출부에서 안내 문구 분기.
+async function fetchMolitMonth(lawdCd, ym, apiKey) {
+  const cached = readDealsCache(lawdCd, ym);
+  if (cached) return { items: cached, cached: true };
+
+  // serviceKey 는 Encoding 키 → 이미 URL 인코딩됨. raw 로 붙여 이중 인코딩 방지.
+  const url = MOLIT_ENDPOINT +
+    '?serviceKey=' + apiKey +
+    '&LAWD_CD=' + encodeURIComponent(lawdCd) +
+    '&DEAL_YMD=' + encodeURIComponent(ym) +
+    '&_type=json' +
+    '&numOfRows=1000';
+
+  const res = await fetch(url, { headers: { accept: 'application/json' } });
+  const text = await res.text();
+  if (!res.ok) {
+    const e = new Error(`HTTP ${res.status}`); e.status = res.status; throw e;
+  }
+  let json;
+  try { json = JSON.parse(text); }
+  catch {
+    // 인증 실패·오류 시 data.go.kr 은 XML 반환 → 키 문제로 간주
+    const e = new Error('국토부 응답 형식 오류(키 확인 필요)'); e.status = 401; throw e;
+  }
+  // 정상 JSON 이라도 헤더 resultCode 로 인증 오류가 올 수 있음
+  const header = json && json.response && json.response.header;
+  const code = header && String(header.resultCode);
+  if (code && code !== '00' && code !== '000') {
+    const msg = (header.resultMsg || '국토부 오류') + (code ? ` (${code})` : '');
+    // SERVICE KEY 관련 오류코드(20/22/30/31)는 인증 문제
+    const e = new Error(msg);
+    e.status = /^(20|22|30|31)$/.test(code) ? 401 : 500;
+    throw e;
+  }
+  const items = molitItemsToArray(json);
+  writeDealsCache(lawdCd, ym, items);
+  return { items, cached: false };
+}
+
+// 단지의 최근 6개월 실거래 조회 → 매칭·정렬된 deals 배열.
+// 반환: {deals, cachedMonths, fetchedMonths}. 월별 실패는 스킵하되, 전부 실패면 마지막 에러 throw.
+async function fetchMolitDeals(lawdCd, name, apiKey) {
+  const months = recentYmds(MOLIT_MONTHS);
+  const deals = [];
+  let cachedMonths = 0, fetchedMonths = 0, okMonths = 0, lastErr = null;
+
+  for (const ym of months) {
+    try {
+      const { items, cached } = await fetchMolitMonth(lawdCd, ym, apiKey);
+      okMonths++;
+      if (cached) cachedMonths++; else fetchedMonths++;
+      for (const it of items) {
+        if (!aptNameMatches(it.aptNm, name)) continue;
+        deals.push(molitItemToDeal(it));
+      }
+    } catch (err) {
+      lastErr = err;
+      // 인증 오류(401)는 다른 달도 똑같이 실패 → 즉시 중단
+      if (err.status === 401) throw err;
+    }
+  }
+  if (okMonths === 0 && lastErr) throw lastErr;
+
+  // 최근→과거 (date 내림차순, null 은 뒤)
+  deals.sort((x, y) => (!x.date ? 1 : !y.date ? -1 : x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
+  return { deals, cachedMonths, fetchedMonths };
+}
+
+// 네트워크 없이 캐시만으로 단지 deals 구성 (비교표용 — 이미 상세를 열어본 지역이면 히트).
+// 만료 여부 무시하고 저장된 것 있으면 사용(비교표는 참고용).
+function cachedDealsFor(c) {
+  if (Array.isArray(c.deals) && c.deals.length) return c.deals;
+  if (!c.lawdCd) return [];
+  const deals = [];
+  for (const ym of recentYmds(MOLIT_MONTHS)) {
+    const raw = LS.get(K.deals(c.lawdCd, ym));
+    if (!raw) continue;
+    try {
+      const obj = JSON.parse(raw);
+      const items = obj && Array.isArray(obj.items) ? obj.items : [];
+      for (const it of items) {
+        if (!aptNameMatches(it.aptNm, c.name)) continue;
+        deals.push(molitItemToDeal(it));
+      }
+    } catch { /* skip */ }
+  }
+  deals.sort((x, y) => (!x.date ? 1 : !y.date ? -1 : x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
+  return deals;
+}
+
+// 상세의 실거래 섹션 렌더 (async). 키 없음/로딩/성공/0건/실패 상태 처리.
+async function renderDeals(c) {
   const area = $('dealsArea');
   const chart = $('dealsChart');
   const countEl = $('dealsCount');
+  if (!area) return;
 
-  const deals = Array.isArray(c.deals) ? c.deals : [];
+  const token = ++dealsState.token;
+  dealsState.no = c.complexNo;
+  const isCurrent = () => dealsState.token === token; // 그 사이 다른 단지로 이동?
 
-  if (!deals.length) {
-    countEl.textContent = '';
-    area.innerHTML = `<div class="notice">실거래 데이터 없음 (수집기에서 국토부 키 설정 후 재수집하세요)</div>`;
-    chart.innerHTML = '';
+  countEl.textContent = '';
+  chart.innerHTML = '';
+
+  const apiKey = LS.get(K.molit, '').trim();
+  if (!apiKey) {
+    area.innerHTML = `<div class="notice deals-cta">
+      설정에서 국토부 키를 넣으면 실거래가 떠요.
+      <button class="btn-inline-settings" id="dealsSettingsBtn" type="button">설정 열기</button>
+    </div>`;
+    const b = $('dealsSettingsBtn');
+    if (b) b.addEventListener('click', openSettings);
+    return;
+  }
+  if (!c.lawdCd) {
+    area.innerHTML = `<div class="notice">이 단지는 지역코드(lawdCd)가 없어 실거래를 조회할 수 없어</div>`;
     return;
   }
 
-  countEl.textContent = `${deals.length}건`;
+  area.innerHTML = `<div class="notice"><span class="spinner"></span> 실거래 불러오는 중…</div>`;
 
-  // data.json은 최근→과거 순. 표는 그대로 최신순으로 최대 12건.
-  const shown = deals.slice(0, 12);
-  area.innerHTML = shown.map((d) => `
-    <div class="deal-row">
-      <span class="lr-price">${fmtEok(d.priceNum)}</span>
-      <span class="lr-info">${d.floor != null ? d.floor + '층' : ''}${d.area != null ? ' · ' + d.area + '㎡' : ''}${d.buildYear != null ? ' · ' + d.buildYear + '년' : ''}</span>
-      <span class="lr-date">${fmtDealDate(d.date)}</span>
-    </div>`).join('');
+  try {
+    const { deals } = await fetchMolitDeals(c.lawdCd, c.name, apiKey);
+    if (!isCurrent()) return;
+    c.deals = deals; // 비교표 등에서 재사용
 
-  chart.innerHTML = renderChart(deals);
+    if (!deals.length) {
+      area.innerHTML = `<div class="notice">최근 6개월 거래 없음</div>`;
+      return;
+    }
+    countEl.textContent = `${deals.length}건`;
+    const shown = deals.slice(0, 12); // 최신순 최대 12건
+    area.innerHTML = shown.map((d) => `
+      <div class="deal-row">
+        <span class="lr-price">${fmtEok(d.priceNum)}</span>
+        <span class="lr-info">${d.floor != null ? d.floor + '층' : ''}${d.area != null ? ' · ' + d.area + '㎡' : ''}${d.buildYear != null ? ' · ' + d.buildYear + '년' : ''}</span>
+        <span class="lr-date">${fmtDealDate(d.date)}</span>
+      </div>`).join('');
+    chart.innerHTML = renderChart(deals);
+  } catch (err) {
+    if (!isCurrent()) return;
+    const st = err && err.status;
+    let msg;
+    if (st === 401) msg = '국토부 키가 올바르지 않아요. 설정에서 일반 인증키(Encoding)를 다시 확인해 주세요.';
+    else if (st === 403) msg = '국토부가 이 요청을 차단했어요(드문 경우). 잠시 후 다시 시도해 주세요.';
+    else msg = `실거래를 불러오지 못했어요. 잠시 후 다시 시도해 주세요. (${escapeHtml(err.message || '네트워크 오류')})`;
+    area.innerHTML = `<div class="notice warn">${msg}</div>`;
+  }
 }
 
 // 인라인 SVG 라인+막대 차트 (외부 라이브러리 없음)
@@ -877,6 +1082,10 @@ function openCompareModal() {
       ['최저 호가', (c) => fmtEok(minL(c))],
       ['최고 호가', (c) => fmtEok(maxL(c))],
       ['호가 건수', (c) => (c.listings || []).length + '건'],
+      ['최근 실거래', (c) => {
+        const ds = cachedDealsFor(c);
+        return ds.length ? `${fmtEok(ds[0].priceNum)} <span class="muted">(${fmtDealDate(ds[0].date)})</span>` : '—';
+      }],
       ['역거리', (c) => stationCompareText(c)],
     ];
     body.innerHTML = `<table class="compare-table">
@@ -892,6 +1101,7 @@ function openCompareModal() {
 // ============================================================
 function openSettings() {
   $('kakaoKey').value = LS.get(K.kakao, '');
+  const mk = $('molitKey'); if (mk) mk.value = LS.get(K.molit, '');
   $('settingsSaved').hidden = true;
   $('settingsModal').hidden = false;
 }
@@ -899,6 +1109,12 @@ function saveSettings() {
   const prevKakao = LS.get(K.kakao, '');
   const newKakao = $('kakaoKey').value.trim();
   LS.set(K.kakao, newKakao);
+
+  const prevMolit = LS.get(K.molit, '');
+  const mk = $('molitKey');
+  const newMolit = mk ? mk.value.trim() : prevMolit;
+  LS.set(K.molit, newMolit);
+
   $('settingsSaved').hidden = false;
   setTimeout(() => { $('settingsSaved').hidden = true; }, 1500);
 
@@ -907,6 +1123,11 @@ function saveSettings() {
     state.mapReady = false;
     state.markers = {};
     loadKakaoSdk();
+  }
+  // 국토부 키가 바뀌었으면 열려있는 상세의 실거래 재조회
+  if (newMolit !== prevMolit && state.selectedNo) {
+    const c = state.complexes.find((x) => x.complexNo === state.selectedNo);
+    if (c) renderDeals(c);
   }
 }
 

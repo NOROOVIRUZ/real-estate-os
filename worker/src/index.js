@@ -453,7 +453,8 @@ async function handleCollect(env) {
   const wl = await getWatchlist(env);
   if (wl.complexes.length === 0) return json({ error: 'watchlist 비어 있음' }, 400);
 
-  const molitKey = env.MOLIT_API_KEY || null; // secret. 없으면 deals=[]
+  // secret. 없으면 deals=[]. 대시보드 등록 시 이름/값에 공백이 딸려 들어간 경우까지 허용.
+  // 국토부는 프론트 직접조회로 이동(CF IP 403 차단). molitKey 미사용.
   const out = { generatedAt: new Date().toISOString(), complexes: [] };
 
   await withNaverSession(env, async (sess) => {
@@ -501,16 +502,8 @@ async function handleCollect(env) {
         console.warn(`[${i + 1}] ${c.name} 호가 수집 실패: ${err.message}`);
       }
 
-      // 국토부 실거래 — 키·lawdCd 있을 때만. 실패해도 deals 빈 배열로 안전 진행.
-      if (molitKey && entry.lawdCd) {
-        try {
-          entry.deals = await fetchMolitDeals(entry.lawdCd, c.name, molitKey);
-        } catch (err) {
-          console.warn(`[${i + 1}] ${c.name} 실거래 실패: ${err.message}`);
-          entry.deals = [];
-        }
-      }
-
+      // 국토부 실거래는 워커(CF IP)가 data.go.kr 방화벽에 403 차단당함(실측) →
+      // 프론트가 사용자 브라우저에서 직접 조회 + localStorage 캐싱. 여기선 안 채움.
       out.complexes.push(entry);
       if (i < wl.complexes.length - 1) await sleep(PER_COMPLEX_DELAY_MS);
     }
