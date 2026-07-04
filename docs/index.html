@@ -176,6 +176,25 @@
     </div>
   </div>
 
+  <!-- ===== 사진 전체화면 뷰어 ===== -->
+  <div class="photo-viewer" id="photoViewer" hidden role="dialog" aria-label="사진 크게 보기">
+    <button class="pv-close" id="pvClose" type="button" aria-label="닫기">✕</button>
+    <button class="pv-nav pv-prev" id="pvPrev" type="button" aria-label="이전 사진">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+    </button>
+    <img class="pv-img" id="pvImg" alt="단지 사진" />
+    <button class="pv-nav pv-next" id="pvNext" type="button" aria-label="다음 사진">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>
+    </button>
+    <div class="pv-bottom">
+      <span class="pv-count" id="pvCount"></span>
+      <button class="pv-delete" id="pvDelete" type="button">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+        삭제
+      </button>
+    </div>
+  </div>
+
   <!-- ===== 토스트 ===== -->
   <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 

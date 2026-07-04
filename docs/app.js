@@ -77,6 +77,49 @@ function fmtDealDate(date) {
 }
 function normName(s) { return (s || '').replace(/\s+/g, '').toLowerCase(); }
 
+// ---------- 역거리 (station: {name, distanceM, walkMin} | null) ----------
+function stationWalkMin(st) {
+  if (!st) return null;
+  if (st.walkMin != null && !isNaN(st.walkMin)) return Math.round(Number(st.walkMin));
+  // walkMin 없으면 distanceM / 67 (분속 67m) 반올림
+  if (st.distanceM != null && !isNaN(st.distanceM)) return Math.round(Number(st.distanceM) / 67);
+  return null;
+}
+function fmtMeters(m) {
+  if (m == null || isNaN(m)) return null;
+  const n = Number(m);
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}km` : `${Math.round(n)}m`;
+}
+// 상세 헤더용 칩: "온수역 430m · 도보 6분"
+function stationChipHtml(c) {
+  const st = c && c.station;
+  if (!st || !st.name) return '';
+  const dist = fmtMeters(st.distanceM);
+  const walk = stationWalkMin(st);
+  const parts = [escapeHtml(st.name) + (dist ? ' ' + dist : '')];
+  if (walk != null) parts.push(`도보 ${walk}분`);
+  return `<span class="d-chip d-chip-station">${parts.join(' · ')}</span>`;
+}
+// 목록 카드용 한 줄: "온수역 도보 6분"
+function stationLineHtml(c) {
+  const st = c && c.station;
+  if (!st || !st.name) return '';
+  const walk = stationWalkMin(st);
+  const tail = walk != null ? ` 도보 ${walk}분` : (fmtMeters(st.distanceM) ? ' ' + fmtMeters(st.distanceM) : '');
+  return `<div class="item-station">${escapeHtml(st.name)}${tail}</div>`;
+}
+// 비교표용: "온수역 430m (도보6분)"
+function stationCompareText(c) {
+  const st = c && c.station;
+  if (!st || !st.name) return '—';
+  const dist = fmtMeters(st.distanceM);
+  const walk = stationWalkMin(st);
+  const bits = [escapeHtml(st.name)];
+  if (dist) bits.push(dist);
+  if (walk != null) bits.push(`(도보${walk}분)`);
+  return bits.join(' ');
+}
+
 // ---------- 모바일 뷰 전환 / 상세 오버레이 ----------
 const mqMobile = window.matchMedia('(max-width: 767px)');
 function isMobile() { return mqMobile.matches; }
@@ -231,6 +274,7 @@ function renderList() {
       <div class="item-main">
         <div class="item-name">${escapeHtml(c.name)}${badge}</div>
         <div class="item-sub">${sub}</div>
+        ${stationLineHtml(c)}
       </div>
       <span class="item-rating">${r ? '★'.repeat(r) : ''}</span>
       ${check}
@@ -301,6 +345,7 @@ function renderDetail(no) {
       <div class="d-name"><span class="pin-dot pin-${c.pinColor || 'red'}"></span>${escapeHtml(c.name)}</div>
       <div class="d-address">${escapeHtml(c.address || '')}</div>
       <div class="d-meta-row">
+        ${stationChipHtml(c)}
         ${c.householdCount ? `<span class="d-chip">${c.householdCount.toLocaleString()}세대</span>` : ''}
         ${c.useApproveYmd ? `<span class="d-chip">준공 ${fmtYmd(c.useApproveYmd)}</span>` : ''}
         ${c.lawdCd ? `<span class="d-chip">코드 ${escapeHtml(c.lawdCd)}</span>` : ''}
@@ -350,6 +395,19 @@ function renderDetail(no) {
       <div class="d-section-title">실거래가 <span class="muted" id="dealsCount"></span></div>
       <div id="dealsArea"><div class="notice">불러오는 중…</div></div>
       <div id="dealsChart"></div>
+    </div>
+
+    <div class="d-section">
+      <div class="d-section-title">사진 <span class="muted" id="photoCount"></span></div>
+      <div id="photoArea"><div class="notice">불러오는 중…</div></div>
+      <div class="photo-actions">
+        <button class="btn-photo-add" id="photoAddBtn" type="button">
+          <span class="spinner" id="photoSpinner" hidden></span>
+          <svg id="photoAddIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span id="photoAddLabel">사진 추가</span>
+        </button>
+        <input type="file" id="photoInput" accept="image/*" multiple hidden />
+      </div>
     </div>
 
     <div class="d-section">
@@ -406,6 +464,9 @@ function renderDetail(no) {
 
   // 실거래 (data.json의 deals 표시)
   renderDeals(c);
+
+  // 사진 섹션
+  initPhotoSection(c.complexNo);
 }
 
 // ============================================================
@@ -464,6 +525,236 @@ function renderChart(deals) {
       <text x="${W - pad}" y="${H - 4}" font-size="10" fill="#8b95a1" text-anchor="end">${fmtEok(pts[n - 1])}</text>
     </svg>
   </div>`;
+}
+
+// ============================================================
+//  사진 (R2 저장 — /api/photos*)
+// ============================================================
+const photoState = {
+  no: null,        // 현재 상세의 complexNo
+  list: [],        // [{id, url, uploadedAt}]
+  viewerIdx: -1,   // 전체화면 뷰어 인덱스
+  uploading: false,
+};
+
+function photoSrc(url) {
+  if (!url) return '';
+  return /^(https?:|data:|blob:)/.test(url) ? url : apiUrl(url);
+}
+
+async function fetchPhotos(no) {
+  const res = await fetch(apiUrl('/api/photos?complexNo=' + encodeURIComponent(no)), { cache: 'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json().catch(() => ({}));
+  if (json && json.error) throw new Error(json.error);
+  return Array.isArray(json.photos) ? json.photos : [];
+}
+
+// 상세 렌더 직후 호출 — 캐시 있으면 즉시 그리고, 서버에서 최신 목록 재조회
+function initPhotoSection(no) {
+  const same = photoState.no === no;
+  photoState.no = no;
+  if (!same) photoState.list = [];
+  else renderPhotoStrip(); // 같은 단지 재렌더(별점 클릭 등) → 깜빡임 없이 즉시 표시
+  loadPhotos(no);
+
+  const btn = $('photoAddBtn');
+  const input = $('photoInput');
+  if (btn && input) {
+    btn.addEventListener('click', () => { if (!photoState.uploading) input.click(); });
+    input.addEventListener('change', () => {
+      const files = Array.from(input.files || []);
+      input.value = '';
+      if (files.length) uploadPhotos(files);
+    });
+  }
+  setPhotoUploadBusy(photoState.uploading, null);
+}
+
+async function loadPhotos(no) {
+  try {
+    const list = await fetchPhotos(no);
+    if (photoState.no !== no) return; // 그 사이 다른 단지로 이동
+    photoState.list = list;
+    renderPhotoStrip();
+    if (!$('photoViewer').hidden) {
+      if (!list.length) closePhotoViewer();
+      else { photoState.viewerIdx = Math.min(photoState.viewerIdx, list.length - 1); updatePhotoViewer(); }
+    }
+  } catch {
+    const area = $('photoArea');
+    if (area && photoState.no === no && !photoState.list.length) {
+      area.innerHTML = `<div class="photo-empty">사진을 불러오지 못했어</div>`;
+    }
+  }
+}
+
+function renderPhotoStrip() {
+  const area = $('photoArea');
+  const count = $('photoCount');
+  if (!area) return;
+  const list = photoState.list;
+  if (count) count.textContent = list.length ? `${list.length}장` : '';
+  if (!list.length) {
+    area.innerHTML = `<div class="photo-empty">아직 사진이 없어요</div>`;
+    return;
+  }
+  area.innerHTML = `<div class="photo-strip">${list.map((p, i) =>
+    `<button type="button" class="photo-thumb" data-idx="${i}" aria-label="사진 ${i + 1} 크게 보기">
+      <img src="${escapeHtml(photoSrc(p.url))}" alt="단지 사진 ${i + 1}" loading="lazy" />
+    </button>`).join('')}</div>`;
+  area.querySelectorAll('.photo-thumb').forEach((btn) => {
+    btn.addEventListener('click', () => openPhotoViewer(Number(btn.dataset.idx)));
+  });
+}
+
+// ---------- 전체화면 뷰어 ----------
+function openPhotoViewer(idx) {
+  if (!photoState.list[idx]) return;
+  photoState.viewerIdx = idx;
+  updatePhotoViewer();
+  $('photoViewer').hidden = false;
+}
+function closePhotoViewer() {
+  $('photoViewer').hidden = true;
+  photoState.viewerIdx = -1;
+}
+function updatePhotoViewer() {
+  const p = photoState.list[photoState.viewerIdx];
+  if (!p) { closePhotoViewer(); return; }
+  $('pvImg').src = photoSrc(p.url);
+  $('pvCount').textContent = `${photoState.viewerIdx + 1} / ${photoState.list.length}`;
+  const multi = photoState.list.length > 1;
+  $('pvPrev').hidden = !multi;
+  $('pvNext').hidden = !multi;
+}
+function stepPhotoViewer(dir) {
+  const n = photoState.list.length;
+  if (!n) return;
+  photoState.viewerIdx = (photoState.viewerIdx + dir + n) % n;
+  updatePhotoViewer();
+}
+
+// ---------- 삭제 ----------
+async function deletePhotoAt(idx) {
+  const p = photoState.list[idx];
+  const no = photoState.no;
+  if (!p || !no) return;
+  if (!confirm('이 사진을 삭제할까?')) return;
+  try {
+    const res = await fetch(apiUrl('/api/photos/delete'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ complexNo: no, id: p.id }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
+    photoState.list.splice(idx, 1);
+    if (!photoState.list.length) closePhotoViewer();
+    else if (!$('photoViewer').hidden) {
+      photoState.viewerIdx = Math.min(idx, photoState.list.length - 1);
+      updatePhotoViewer();
+    }
+    renderPhotoStrip();
+    toast('사진 삭제됨', 'success');
+  } catch (err) {
+    toast(`삭제 실패: ${err.message || err}`, 'error', 5000);
+  }
+}
+
+// ---------- 업로드 (canvas 압축: 최대 1600px, JPEG 0.82) ----------
+function compressImage(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const objUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objUrl);
+      try {
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) throw new Error('이미지 크기를 읽을 수 없어');
+        const scale = Math.min(1, maxDim / Math.max(w, h));
+        w = Math.max(1, Math.round(w * scale));
+        h = Math.max(1, Math.round(h * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff'; // PNG 투명 배경 → 흰색 (JPEG는 알파 없음)
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch (err) { reject(err); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(objUrl); reject(new Error('이미지 파일을 읽을 수 없어')); };
+    img.src = objUrl;
+  });
+}
+
+function setPhotoUploadBusy(busy, progressText) {
+  const btn = $('photoAddBtn');
+  const sp = $('photoSpinner');
+  const icon = $('photoAddIcon');
+  const label = $('photoAddLabel');
+  if (!btn) return;
+  btn.disabled = busy;
+  if (sp) sp.hidden = !busy;
+  if (icon) icon.style.display = busy ? 'none' : '';
+  if (label) label.textContent = busy ? (progressText || '업로드 중…') : '사진 추가';
+}
+
+async function uploadPhotos(files) {
+  if (photoState.uploading) return;
+  const no = photoState.no;
+  if (!no || !files.length) return;
+  photoState.uploading = true;
+  let ok = 0, fail = 0, lastErr = null;
+  try {
+    for (let i = 0; i < files.length; i++) {
+      setPhotoUploadBusy(true, `업로드 중… ${i + 1}/${files.length}`);
+      try {
+        const dataUrl = await compressImage(files[i]);
+        const res = await fetch(apiUrl('/api/photos/upload'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ complexNo: no, dataUrl }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
+        ok++;
+      } catch (err) { fail++; lastErr = err; }
+    }
+  } finally {
+    photoState.uploading = false;
+    setPhotoUploadBusy(false, null);
+  }
+  if (ok) toast(`사진 ${ok}장 업로드 완료`, 'success');
+  if (fail) toast(`${fail}장 업로드 실패: ${(lastErr && lastErr.message) || '네트워크·용량을 확인해'}`, 'error', 5000);
+  if (photoState.no === no) loadPhotos(no); // 갤러리 갱신
+}
+
+// 뷰어의 고정 버튼들 (index.html에 정적으로 존재)
+function bindPhotoViewer() {
+  const pv = $('photoViewer');
+  if (!pv) return;
+  $('pvClose').addEventListener('click', closePhotoViewer);
+  $('pvPrev').addEventListener('click', () => stepPhotoViewer(-1));
+  $('pvNext').addEventListener('click', () => stepPhotoViewer(1));
+  $('pvDelete').addEventListener('click', () => deletePhotoAt(photoState.viewerIdx));
+
+  // 좌우 스와이프로 넘기기 (모바일)
+  let touchX = null, swiped = false;
+  pv.addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; swiped = false; }, { passive: true });
+  pv.addEventListener('touchend', (e) => {
+    if (touchX == null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    touchX = null;
+    if (Math.abs(dx) > 40) { swiped = true; stepPhotoViewer(dx < 0 ? 1 : -1); }
+  }, { passive: true });
+
+  // 배경/이미지 탭으로 닫기 (스와이프 직후엔 무시)
+  pv.addEventListener('click', (e) => {
+    if (swiped) { swiped = false; return; }
+    if (e.target === pv || e.target === $('pvImg')) closePhotoViewer();
+  });
 }
 
 // ============================================================
@@ -586,7 +877,7 @@ function openCompareModal() {
       ['최저 호가', (c) => fmtEok(minL(c))],
       ['최고 호가', (c) => fmtEok(maxL(c))],
       ['호가 건수', (c) => (c.listings || []).length + '건'],
-      ['역거리', () => '—'],
+      ['역거리', (c) => stationCompareText(c)],
     ];
     body.innerHTML = `<table class="compare-table">
       <tr><th></th><td class="th-name">${escapeHtml(a.name)}</td><td class="th-name">${escapeHtml(b.name)}</td></tr>
@@ -974,8 +1265,19 @@ function bindEvents() {
     ov.addEventListener('click', (e) => { if (e.target === ov) ov.hidden = true; });
   });
   document.addEventListener('keydown', (e) => {
+    const pv = $('photoViewer');
+    if (pv && !pv.hidden) {
+      // 뷰어 열림: Esc 닫기, 좌우 화살표로 넘기기
+      if (e.key === 'Escape') closePhotoViewer();
+      else if (e.key === 'ArrowLeft') stepPhotoViewer(-1);
+      else if (e.key === 'ArrowRight') stepPhotoViewer(1);
+      return;
+    }
     if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach((ov) => ov.hidden = true);
   });
+
+  // 사진 전체화면 뷰어 (정적 요소)
+  bindPhotoViewer();
 }
 
 async function boot() {

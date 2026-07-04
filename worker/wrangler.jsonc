@@ -13,6 +13,14 @@
     { "binding": "REOS_KV", "id": "73fc615e4ac240f9beda1d2d37205d44" }
   ],
 
+  // R2 — 단지 사진 저장 (API.md /api/photos*)
+  // ⚠️ 계정에 R2 미활성(code 10042) — 대시보드에서 R2 활성화 후:
+  //   1) npx wrangler r2 bucket create reos-photos
+  //   2) 아래 주석 해제 → npx wrangler deploy
+  // "r2_buckets": [
+  //   { "binding": "REOS_R2", "bucket_name": "reos-photos" }
+  // ],
+
   // 프론트(docs/)를 Worker 가 정적 서빙.
   // run_worker_first: ["/api/*"] → /api/* 만 Worker fetch 핸들러로,
   // 나머지 경로는 정적 assets(docs/) 로 직접 서빙.

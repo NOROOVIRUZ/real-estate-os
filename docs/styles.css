@@ -443,6 +443,80 @@ code { font-family: 'Pretendard', ui-monospace, monospace; background: var(--col
   background: var(--color-surface); color: var(--color-text-muted); cursor: default;
 }
 
+/* ===== 역거리 (station) ===== */
+.item-station {
+  font-size: 11px; font-weight: 600; color: var(--color-accent); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.d-chip-station { background: var(--color-accent-soft); color: var(--color-accent); }
+
+/* ===== 사진 섹션 (상세) ===== */
+.photo-strip {
+  display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+}
+.photo-thumb {
+  flex: 0 0 auto; width: 104px; height: 104px; border-radius: 12px; overflow: hidden;
+  border: none; padding: 0; cursor: pointer; background: var(--color-surface);
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+.photo-thumb:hover { box-shadow: var(--shadow-hover); }
+.photo-thumb:active { transform: scale(0.97); }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-empty {
+  font-size: 13px; color: var(--color-text-muted); background: var(--color-surface);
+  border-radius: var(--radius-input); padding: 20px 16px; text-align: center;
+}
+.photo-actions { margin-top: 10px; }
+.btn-photo-add {
+  width: 100%; height: 44px; border: none; border-radius: var(--radius-input);
+  background: var(--color-accent-soft); color: var(--color-accent);
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background 0.15s, transform 0.1s;
+}
+.btn-photo-add:hover { background: #dcecff; }
+.btn-photo-add:active { transform: scale(0.98); }
+.btn-photo-add:disabled { opacity: 0.6; cursor: progress; }
+.btn-photo-add .spinner { color: var(--color-accent); }
+
+/* ===== 사진 전체화면 뷰어 ===== */
+.photo-viewer {
+  position: fixed; inset: 0; z-index: 300; background: rgba(0, 0, 0, 0.94);
+  display: flex; align-items: center; justify-content: center;
+}
+.pv-img {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+  user-select: none; -webkit-user-drag: none;
+}
+.pv-close {
+  position: absolute; top: calc(14px + env(safe-area-inset-top)); right: 14px; z-index: 2;
+  width: 40px; height: 40px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.12); color: #fff; font-size: 16px; cursor: pointer;
+  transition: background 0.15s;
+}
+.pv-close:hover { background: rgba(255,255,255,0.22); }
+.pv-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 44px; height: 44px; border-radius: 50%; border: none;
+  background: rgba(255,255,255,0.12); color: #fff; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s;
+}
+.pv-nav:hover { background: rgba(255,255,255,0.22); }
+.pv-prev { left: 10px; }
+.pv-next { right: 10px; }
+.pv-bottom {
+  position: absolute; left: 0; right: 0; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 2;
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+}
+.pv-count { color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 600; }
+.pv-delete {
+  border: none; border-radius: 999px; background: rgba(240,68,82,0.9); color: #fff;
+  font-size: 13px; font-weight: 700; padding: 10px 18px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: background 0.15s;
+}
+.pv-delete:hover { background: var(--color-red); }
+
 /* ============================================================
    Mobile (<768px): 탭 기반 단일 뷰 + 상세 전체화면 오버레이
    데스크톱(≥768px)은 위의 3패널 레이아웃 그대로 유지

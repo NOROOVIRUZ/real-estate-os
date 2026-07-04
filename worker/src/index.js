@@ -235,7 +235,7 @@ async function withNaverSession(env, fn) {
       return JSON.parse(result.text);
     }
 
-    return await fn({ fetchOnNaver });
+    return await fn({ fetchOnNaver, page, browser });
   } finally {
     await browser.close();
   }
@@ -269,6 +269,101 @@ async function searchComplexes({ fetchOnNaver }, keyword) {
   const data = await fetchOnNaver('/api/search?keyword=' + encodeURIComponent(keyword));
   const list = (data && data.complexes) || [];
   return list.map(normalizeComplex);
+}
+
+// ── 역거리 (fin.land front-api — 실측 확정) ───────────────────────────────
+//
+// 실측 결과 (2026-07-04, complexNo 120265):
+//  · new.land 의 overview / complexes 상세 / schools 에는 지하철 정보 없음
+//  · fin.land `GET /front-api/v1/article/transport?itemType=complex&itemId={cno}`
+//    → result.subwayList[]: { stationName, typeList: [{ name(호선),
+//      walkingDistance(m), walkingDuration(분) }] }
+//  · 쿠키 없이 호출하면 429 봇 차단 → 실제 fin 페이지 1회 방문(워밍업) 후
+//    interception 으로 만든 fin origin 빈 페이지에서 same-origin fetch (검증됨)
+
+// transport 응답 → station {name, distanceM, walkMin} | null. 가장 가까운 역 선택.
+function parseStation(data) {
+  const list =
+    data && data.result && Array.isArray(data.result.subwayList)
+      ? data.result.subwayList
+      : [];
+  let best = null;
+  for (const st of list) {
+    for (const t of st.typeList || []) {
+      const d = t.walkingDistance != null ? Number(t.walkingDistance) : null;
+      const w = t.walkingDuration != null ? Number(t.walkingDuration) : null;
+      if (d == null && w == null) continue;
+      if (
+        !best ||
+        (d != null && (best.distanceM == null || d < best.distanceM))
+      ) {
+        best = { name: st.stationName || null, distanceM: d, walkMin: w };
+      }
+    }
+  }
+  if (!best) return null;
+  if (best.walkMin == null && best.distanceM != null) {
+    best.walkMin = Math.round(best.distanceM / 67); // 분속 67m
+  }
+  return best;
+}
+
+// 같은 브라우저(쿠키 공유)에서 fin origin 페이지를 하나 열어
+// complexNo → station 맵을 만든다. 실패는 null (collect 를 깨지 않음).
+async function fetchStations(browser, complexNos) {
+  const out = {};
+  for (const cno of complexNos) out[cno] = null;
+  if (complexNos.length === 0) return out;
+
+  const page = await browser.newPage();
+  try {
+    await page.setUserAgent(UA);
+    await page.setRequestInterception(true);
+    page.on('request', (r) => {
+      if (r.url().includes('/__station_probe__')) {
+        r.respond({
+          status: 200,
+          contentType: 'text/html',
+          body: '<!doctype html><html><body>ok</body></html>',
+        });
+      } else {
+        r.continue();
+      }
+    });
+    // 쿠키 워밍업 — 페이지 자체는 튕겨도(404 리다이렉트) 무방
+    await page
+      .goto('https://fin.land.naver.com/complexes/' + complexNos[0], {
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      })
+      .catch(() => {});
+    await sleep(1500);
+    await page.goto('https://fin.land.naver.com/__station_probe__', {
+      waitUntil: 'domcontentloaded',
+      timeout: 20000,
+    });
+
+    for (let i = 0; i < complexNos.length; i++) {
+      const cno = complexNos[i];
+      try {
+        const res = await page.evaluate(async (u) => {
+          const r = await fetch(u, { headers: { accept: 'application/json' } });
+          return { status: r.status, text: await r.text() };
+        }, '/front-api/v1/article/transport?itemType=complex&itemId=' + encodeURIComponent(cno));
+        if (res.status === 200) {
+          out[cno] = parseStation(JSON.parse(res.text));
+        } else {
+          console.warn(`역거리 ${cno} HTTP ${res.status}: ${String(res.text).slice(0, 120)}`);
+        }
+      } catch (err) {
+        console.warn(`역거리 ${cno} 실패: ${err.message}`);
+      }
+      if (i < complexNos.length - 1) await sleep(PER_COMPLEX_DELAY_MS);
+    }
+  } finally {
+    await page.close().catch(() => {});
+  }
+  return out;
 }
 
 async function fetchArticles({ fetchOnNaver }, complexNo) {
@@ -374,6 +469,7 @@ async function handleCollect(env) {
         useApproveYmd: null,
         pinColor: c.pinColor || 'yellow',
         lawdCd: c.lawdCd || null,
+        station: null,
         listings: [],
         deals: [],
       };
@@ -418,6 +514,17 @@ async function handleCollect(env) {
       out.complexes.push(entry);
       if (i < wl.complexes.length - 1) await sleep(PER_COMPLEX_DELAY_MS);
     }
+
+    // 역거리 — 같은 브라우저에서 fin origin 으로 일괄 조회. 실패해도 station=null 진행.
+    try {
+      const stations = await fetchStations(
+        sess.browser,
+        out.complexes.map((e) => e.complexNo)
+      );
+      for (const e of out.complexes) e.station = stations[e.complexNo] || null;
+    } catch (err) {
+      console.warn(`역거리 수집 실패(전체 스킵): ${err.message}`);
+    }
   });
 
   await env.REOS_KV.put('data', JSON.stringify(out));
@@ -426,6 +533,142 @@ async function handleCollect(env) {
     count: out.complexes.length,
     ms: Date.now() - t0,
     generatedAt: out.generatedAt,
+  });
+}
+
+// ── R2 사진 API (binding REOS_R2, 버킷 reos-photos) ──────────────────────
+
+const PHOTO_MAX_BYTES = 8 * 1024 * 1024; // 8MB
+const PHOTO_TYPES = { 'image/jpeg': true, 'image/png': true };
+
+// 경로문자(/, ..) 차단 — 영숫자·하이픈만 허용
+function sanitizePhotoId(s) {
+  return String(s || '').replace(/[^0-9A-Za-z-]/g, '');
+}
+
+function sanitizeComplexNo(s) {
+  return String(s || '').replace(/[^\d]/g, '');
+}
+
+// 사진 저장소 어댑터 — R2 바인딩 있으면 R2, 없으면 KV 폴백.
+// ponytail: R2는 계정에서 카드 등록 후 활성화해야 해서, 켜기 전까지 KV(무료 1GB≈압축사진 수천 장)로 동작.
+// KV의 list()는 최대 60초 지연(eventual consistency)이라 목록은 인덱스 키(photoidx:<cno>)로 관리.
+function photoStore(env) {
+  if (env.REOS_R2) {
+    return {
+      async list(cno) {
+        const r = await env.REOS_R2.list({ prefix: 'photos/' + cno + '/' });
+        return (r.objects || []).map((o) => ({
+          id: o.key.split('/').pop().replace(/\.jpg$/, ''),
+          uploadedAt: o.uploaded ? new Date(o.uploaded).toISOString() : null,
+        }));
+      },
+      async put(cno, id, bytes, ct) {
+        await env.REOS_R2.put('photos/' + cno + '/' + id + '.jpg', bytes, {
+          httpMetadata: { contentType: ct },
+        });
+      },
+      async get(cno, id) {
+        const o = await env.REOS_R2.get('photos/' + cno + '/' + id + '.jpg');
+        if (!o) return null;
+        return { body: o.body, ct: (o.httpMetadata && o.httpMetadata.contentType) || 'image/jpeg' };
+      },
+      async del(cno, id) {
+        await env.REOS_R2.delete('photos/' + cno + '/' + id + '.jpg');
+      },
+    };
+  }
+  const idxKey = (cno) => 'photoidx:' + cno;
+  const blobKey = (cno, id) => 'photoblob:' + cno + ':' + id;
+  const readIdx = async (cno) => (await env.REOS_KV.get(idxKey(cno), 'json')) || [];
+  return {
+    async list(cno) {
+      return readIdx(cno);
+    },
+    async put(cno, id, bytes, ct) {
+      const uploadedAt = new Date().toISOString();
+      await env.REOS_KV.put(blobKey(cno, id), bytes.buffer, { metadata: { ct } });
+      const idx = await readIdx(cno);
+      idx.push({ id, uploadedAt });
+      await env.REOS_KV.put(idxKey(cno), JSON.stringify(idx));
+    },
+    async get(cno, id) {
+      const { value, metadata } = await env.REOS_KV.getWithMetadata(blobKey(cno, id), 'arrayBuffer');
+      if (!value) return null;
+      return { body: value, ct: (metadata && metadata.ct) || 'image/jpeg' };
+    },
+    async del(cno, id) {
+      await env.REOS_KV.delete(blobKey(cno, id));
+      const idx = (await readIdx(cno)).filter((p) => p.id !== id);
+      await env.REOS_KV.put(idxKey(cno), JSON.stringify(idx));
+    },
+  };
+}
+
+async function handlePhotosList(env, complexNoRaw) {
+  const cno = sanitizeComplexNo(complexNoRaw);
+  if (!cno) return json({ error: 'complexNo 필요' }, 400);
+  const items = await photoStore(env).list(cno);
+  const photos = items.map((p) => ({
+    id: p.id,
+    url: '/api/photo/' + cno + '/' + p.id,
+    uploadedAt: p.uploadedAt || null,
+  }));
+  return json({ photos });
+}
+
+async function handlePhotoUpload(env, body) {
+  const cno = sanitizeComplexNo(body && body.complexNo);
+  const dataUrl = body && typeof body.dataUrl === 'string' ? body.dataUrl : '';
+  if (!cno || !dataUrl) return json({ error: 'complexNo, dataUrl 필요' }, 400);
+
+  const m = dataUrl.match(/^data:([a-z/+.-]+);base64,(.+)$/is);
+  if (!m) return json({ error: 'dataUrl 형식 아님 (data:<mime>;base64,...)' }, 400);
+  const mime = m[1].toLowerCase();
+  const b64 = m[2];
+  if (!PHOTO_TYPES[mime]) return json({ error: 'image/jpeg 또는 image/png 만 허용' }, 400);
+  // 디코드 전에 크기 개산으로 조기 거부 (base64 → bytes ≈ len*3/4)
+  if (b64.length * 0.75 > PHOTO_MAX_BYTES) return json({ error: '최대 8MB 초과' }, 413);
+
+  let bytes;
+  try {
+    const bin = atob(b64);
+    bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  } catch (_) {
+    return json({ error: 'base64 디코드 실패' }, 400);
+  }
+  if (bytes.length === 0) return json({ error: '빈 이미지' }, 400);
+  if (bytes.length > PHOTO_MAX_BYTES) return json({ error: '최대 8MB 초과' }, 413);
+
+  const id = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  await photoStore(env).put(cno, id, bytes, mime);
+  return json({ id, url: '/api/photo/' + cno + '/' + id });
+}
+
+async function handlePhotoDelete(env, body) {
+  const cno = sanitizeComplexNo(body && body.complexNo);
+  const id = sanitizePhotoId(body && body.id);
+  if (!cno || !id) return json({ error: 'complexNo, id 필요' }, 400);
+  await photoStore(env).del(cno, id);
+  return json({ ok: true });
+}
+
+// GET /api/photo/<complexNo>/<id> → 이미지 바이너리
+async function handlePhotoGet(env, pathname) {
+  const parts = pathname.split('/').filter(Boolean); // [api, photo, cno, id]
+  const cno = sanitizeComplexNo(parts[2]);
+  const id = sanitizePhotoId(parts[3]);
+  if (!cno || !id) return json({ error: 'not found' }, 404);
+  const obj = await photoStore(env).get(cno, id);
+  if (!obj) return json({ error: 'not found' }, 404);
+  return new Response(obj.body, {
+    status: 200,
+    headers: {
+      'Content-Type': obj.ct,
+      'Cache-Control': 'public, max-age=86400',
+      ...CORS,
+    },
   });
 }
 
@@ -462,6 +705,20 @@ export default {
       }
       if (pathname === '/api/collect' && request.method === 'POST') {
         return await handleCollect(env);
+      }
+
+      // ── 사진 (R2 있으면 R2, 없으면 KV 폴백 — photoStore) ──
+      if (pathname === '/api/photos' && request.method === 'GET') {
+        return await handlePhotosList(env, url.searchParams.get('complexNo'));
+      }
+      if (pathname === '/api/photos/upload' && request.method === 'POST') {
+        return await handlePhotoUpload(env, await request.json().catch(() => ({})));
+      }
+      if (pathname === '/api/photos/delete' && request.method === 'POST') {
+        return await handlePhotoDelete(env, await request.json().catch(() => ({})));
+      }
+      if (pathname.startsWith('/api/photo/') && request.method === 'GET') {
+        return await handlePhotoGet(env, pathname);
       }
 
       if (pathname.startsWith('/api/')) {
