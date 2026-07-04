@@ -475,8 +475,10 @@ function renderDetail(no) {
 //  실거래 — 국토부 API 브라우저 직접조회 + localStorage 월별 캐싱
 //  (워커 IP는 국토부 방화벽에 막혀 서버조회 불가 → 사용자 브라우저에서 직접)
 // ============================================================
+// "기본" API 사용 — data.go.kr 기본 활용신청으로 됨. "상세(Dev)"는 별도 신청 필요해 403(실측).
+// 필요한 필드(dealAmount/dealYear/Month/Day/excluUseAr/floor/buildYear)는 기본에도 다 있음.
 const MOLIT_ENDPOINT =
-  'https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev';
+  'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade';
 const MOLIT_MONTHS = 6;               // 최근 6개월
 const DEAL_TTL_CURRENT = 6 * 3600e3;  // 당월: 6시간
 const DEAL_TTL_PAST = 30 * 86400e3;   // 지난 달들: 30일
@@ -487,7 +489,14 @@ const dealsState = { no: null, token: 0 };
 // 이름 정규화 (collector 와 동일 규칙: 숫자·영문·한글만)
 function molitNormName(s) {
   if (s == null) return '';
-  return String(s).replace(/[^0-9A-Za-z가-힣]/g, '').toLowerCase();
+  return String(s)
+    .replace(/[^0-9A-Za-z가-힣]/g, '')
+    .toLowerCase()
+    // 브랜드 영문/한글 표기 통일 — 네이버(e편한세상)와 국토부(이편한세상)가 다르게 씀
+    .replace(/이편한세상/g, 'e편한세상')
+    .replace(/아이파크/g, 'ipark')
+    .replace(/에스케이뷰/g, 'skview')
+    .replace(/자이/g, 'xi');
 }
 // 관대한 부분매칭 — 한쪽이 다른 쪽을 포함하면 매칭
 function aptNameMatches(aptNm, name) {
