@@ -274,6 +274,21 @@ code { font-family: 'Pretendard', ui-monospace, monospace; background: var(--col
 .btn-add-submit { display: inline-flex; align-items: center; gap: 3px; padding: 0 16px; height: 40px; white-space: nowrap; }
 .btn-add-submit:disabled { opacity: 0.7; cursor: progress; }
 
+/* ===== Header settings icon ===== */
+.btn-settings { font-size: 16px; padding: 8px 12px; line-height: 1; }
+
+/* ===== List actions row (add + refresh) ===== */
+.actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 2px; }
+.actions-row .btn-add-toggle { margin: 0; }
+.btn-refresh-lg { height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.btn-compare-inline { width: 100%; margin-top: 8px; }
+
+/* ===== Detail topbar (back button) — mobile only, hidden on desktop ===== */
+.detail-topbar { display: none; }
+
+/* ===== Bottom tab bar — mobile only, hidden on desktop ===== */
+.tab-bar { display: none; }
+
 /* ===== Item remove (✕) ===== */
 .item-remove {
   position: absolute; bottom: 8px; right: 10px;
@@ -315,11 +330,97 @@ code { font-family: 'Pretendard', ui-monospace, monospace; background: var(--col
 .toast-error { background: #e03131; }
 .toast-info { background: var(--color-text); }
 
-/* ===== Mobile / narrow ===== */
-@media (max-width: 1024px) {
-  .layout { grid-template-columns: 1fr; height: auto; overflow: visible; }
-  .panel { height: auto; overflow: visible; }
-  .panel-list { max-height: 50vh; overflow-y: auto; }
-  .panel-map { height: 50vh; }
-  .panel-detail { border-left: none; border-top: 1px solid var(--color-divider); }
+/* ============================================================
+   Mobile (<768px): 탭 기반 단일 뷰 + 상세 전체화면 오버레이
+   데스크톱(≥768px)은 위의 3패널 레이아웃 그대로 유지
+   ============================================================ */
+@media (max-width: 767px) {
+  /* --- 헤더 컴팩트: 타이틀 한 줄, 부제 숨김, ⚙️만 --- */
+  .header-inner { padding: 0 14px; gap: 8px; }
+  .brand { min-width: 0; }
+  .brand > div { min-width: 0; overflow: hidden; }
+  .brand-emoji { font-size: 22px; }
+  .brand-title { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brand-sub { display: none; }
+  .header-actions { flex-shrink: 0; }
+
+  /* --- 레이아웃: 단일 컬럼, 뷰포트 높이 채움 --- */
+  .layout {
+    grid-template-columns: 1fr;
+    height: calc(100vh - var(--header-h));
+    height: calc(100dvh - var(--header-h));
+    gap: 0;
+  }
+  .panel { height: 100%; }
+
+  /* --- 뷰 전환: 한 번에 한 패널만 --- */
+  .panel-list, .panel-map { display: none; }
+  body[data-view="list"] .panel-list { display: flex; }
+  body[data-view="map"]  .panel-map  { display: block; }
+
+  /* 하단 탭바 공간 확보 */
+  .panel-list { padding: 14px 14px calc(80px + env(safe-area-inset-bottom)); }
+
+  /* 목록 액션: 추가/갱신 한 줄, 갱신 강조 */
+  .btn-refresh-lg { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-accent); font-weight: 800; }
+  .btn-compare-inline { display: none; } /* 탭바가 대체 */
+
+  /* 터치 타깃 확대 */
+  .complex-item { padding: 14px; min-height: 56px; }
+  .item-remove { opacity: 1; } /* 모바일은 hover 없음 → 항상 표시 */
+
+  /* --- 상세: 전체화면 슬라이드업 오버레이 --- */
+  .panel-detail {
+    position: fixed; inset: 0; z-index: 80;
+    background: var(--color-bg); border: none;
+    display: flex; flex-direction: column; overflow: hidden;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  body.detail-open .panel-detail { transform: translateY(0); }
+  body.detail-open .tab-bar { display: none; } /* 오버레이 중엔 탭바 숨김 */
+
+  .detail-topbar {
+    display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    padding: 10px 12px; padding-top: calc(10px + env(safe-area-inset-top));
+    border-bottom: 1px solid var(--color-divider);
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+  }
+  .detail-back {
+    background: none; border: none; font-size: 22px; font-weight: 800;
+    color: var(--color-text); cursor: pointer; width: 40px; height: 40px;
+    border-radius: 10px; flex-shrink: 0;
+  }
+  .detail-back:active { background: var(--color-surface); }
+  .detail-topbar-name {
+    font-size: 16px; font-weight: 800; letter-spacing: -0.02em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .detail-empty, .detail-body { flex: 1; overflow-y: auto; }
+  .detail-body { padding: 18px 16px calc(32px + env(safe-area-inset-bottom)); }
+
+  /* --- 하단 고정 탭바 --- */
+  .tab-bar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+    background: rgba(255,255,255,0.96);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-top: 1px solid var(--color-divider);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tab-btn {
+    flex: 1; background: none; border: none; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 9px 0 11px; color: var(--color-text-muted);
+    font-size: 11px; font-weight: 700; transition: color 0.15s;
+  }
+  .tab-ico { font-size: 20px; line-height: 1; }
+  .tab-btn.is-active { color: var(--color-accent); }
+
+  /* --- 모달: 바텀시트 느낌 + 비교표 가로 스크롤 --- */
+  .modal-overlay { padding: 10px; align-items: flex-end; }
+  .modal { max-width: 100%; max-height: 84vh; border-radius: 18px; }
+  .modal-body { overflow-x: auto; }
 }

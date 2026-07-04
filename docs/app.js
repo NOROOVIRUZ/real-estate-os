@@ -42,6 +42,8 @@ const state = {
   sort: 'rating_desc',
   compareMode: false,
   compareSel: [],   // complexNo 최대 2개
+  view: 'list',       // 모바일 뷰: 'list' | 'map'
+  detailOpen: false,  // 모바일 상세 오버레이 열림 여부
   map: null,
   markers: {},      // complexNo -> kakao.maps.Marker
   mapReady: false,
@@ -70,6 +72,44 @@ function fmtDealDate(date) {
   return String(date).replace(/-/g, '.');
 }
 function normName(s) { return (s || '').replace(/\s+/g, '').toLowerCase(); }
+
+// ---------- 모바일 뷰 전환 / 상세 오버레이 ----------
+const mqMobile = window.matchMedia('(max-width: 767px)');
+function isMobile() { return mqMobile.matches; }
+
+function updateTabBar(activeKey) {
+  document.querySelectorAll('#tabBar .tab-btn').forEach((b) => {
+    b.classList.toggle('is-active', b.dataset.view === activeKey);
+  });
+}
+
+// 탭바로 뷰 전환. 'list' | 'map' | 'compare'
+function setView(v) {
+  closeDetail(); // 다른 탭으로 이동하면 상세 오버레이 닫기
+  if (v === 'compare') {
+    // 비교는 목록에서 2개 선택 → 모달. 목록을 띄우고 비교모드 ON.
+    document.body.dataset.view = 'list';
+    if (!state.compareMode) setCompareMode(true);
+    updateTabBar('compare');
+    return;
+  }
+  document.body.dataset.view = v;
+  if (state.compareMode) setCompareMode(false);
+  updateTabBar(v);
+  if (v === 'map' && state.mapReady && state.map) {
+    // display:none 이었다가 표시되면 Kakao 지도 리레이아웃 필요
+    setTimeout(() => { try { state.map.relayout(); renderMarkers(); } catch {} }, 60);
+  }
+}
+
+function openDetail() {
+  state.detailOpen = true;
+  if (isMobile()) document.body.classList.add('detail-open');
+}
+function closeDetail() {
+  state.detailOpen = false;
+  document.body.classList.remove('detail-open');
+}
 
 // ============================================================
 //  데이터 로드
@@ -200,6 +240,7 @@ function selectComplex(no, focusMap) {
   state.selectedNo = no;
   renderList();
   renderDetail(no);
+  openDetail(); // 모바일: 상세 전체화면 오버레이 슬라이드업
   if (focusMap && state.mapReady) {
     const c = state.complexes.find((x) => x.complexNo === no);
     if (c && c.lat && c.lng) {
@@ -217,6 +258,8 @@ function renderDetail(no) {
   const empty = $('detailEmpty');
   if (!c) { body.hidden = true; empty.hidden = false; return; }
   empty.hidden = true; body.hidden = false;
+  const topName = $('detailTopName');
+  if (topName) topName.textContent = c.name;
 
   const listings = (c.listings || []).slice().sort((a, b) => (a.priceNum || 0) - (b.priceNum || 0));
   const min = listings.length ? listings[0].priceNum : null;
@@ -575,6 +618,7 @@ async function reloadAndRender() {
     state.selectedNo = null;
     $('detailBody').hidden = true;
     $('detailEmpty').hidden = false;
+    closeDetail();
   }
 }
 
@@ -730,6 +774,16 @@ function bindEvents() {
   $('compareToggle').addEventListener('click', () => setCompareMode(!state.compareMode));
   $('compareClose').addEventListener('click', () => { $('compareModal').hidden = true; });
 
+  // 하단 탭바 (모바일)
+  document.querySelectorAll('#tabBar .tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => setView(btn.dataset.view));
+  });
+  // 상세 오버레이 뒤로가기 (모바일)
+  const backBtn = $('detailBack');
+  if (backBtn) backBtn.addEventListener('click', closeDetail);
+  // 데스크톱으로 넓어지면 상세 오버레이 클래스 정리
+  mqMobile.addEventListener('change', (e) => { if (!e.matches) closeDetail(); });
+
   $('settingsBtn').addEventListener('click', openSettings);
   $('mapSettingsBtn').addEventListener('click', openSettings);
   $('settingsClose').addEventListener('click', () => { $('settingsModal').hidden = true; });
@@ -745,6 +799,7 @@ function bindEvents() {
 }
 
 async function boot() {
+  document.body.dataset.view = 'list'; // 모바일 기본 뷰
   bindEvents();
   await loadData();
   $('dataBadge').hidden = !state.isSample;

@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#FF003C" />
   <title>Real Estate OS · 관심단지</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔴</text></svg>" />
@@ -21,13 +21,8 @@
         </div>
       </div>
       <div class="header-actions">
-        <span class="data-badge" id="dataBadge" hidden>샘플 데이터</span>
-        <button class="btn-mode btn-refresh" id="refreshBtn" type="button">
-          <span class="spinner" id="refreshSpinner" hidden></span>
-          <span id="refreshLabel">🔄 호가 갱신</span>
-        </button>
-        <button class="btn-mode" id="compareToggle" type="button">⚖️ 비교하기</button>
-        <button class="btn-icon" id="settingsBtn" type="button" aria-label="설정">⚙️ 설정</button>
+        <span class="data-badge" id="dataBadge" hidden>샘플</span>
+        <button class="btn-icon btn-settings" id="settingsBtn" type="button" aria-label="설정">⚙️</button>
       </div>
     </div>
   </header>
@@ -47,8 +42,14 @@
             <option value="name_asc">이름순</option>
           </select>
         </div>
-        <div class="add-box" id="addBox">
+        <div class="actions-row">
           <button class="btn-add-toggle" id="addToggle" type="button">＋ 단지 추가</button>
+          <button class="btn-mode btn-refresh btn-refresh-lg" id="refreshBtn" type="button">
+            <span class="spinner" id="refreshSpinner" hidden></span>
+            <span id="refreshLabel">🔄 호가 갱신</span>
+          </button>
+        </div>
+        <div class="add-box" id="addBox">
           <div class="add-form" id="addForm" hidden>
             <input id="addInput" type="text" placeholder="단지명 입력 (예: 철산래미안자이)" autocomplete="off" />
             <button class="btn-primary btn-add-submit" id="addSubmit" type="button">
@@ -57,6 +58,7 @@
             </button>
           </div>
         </div>
+        <button class="btn-mode btn-compare-inline" id="compareToggle" type="button">⚖️ 비교하기</button>
       </div>
       <div class="compare-hint" id="compareHint" hidden>비교할 단지 2개를 선택해</div>
       <div class="result-info"><span id="listCount">—</span></div>
@@ -77,6 +79,10 @@
 
     <!-- ===== 우: 상세 ===== -->
     <aside class="panel panel-detail" id="panelDetail">
+      <div class="detail-topbar" id="detailTopbar">
+        <button class="detail-back" id="detailBack" type="button" aria-label="목록으로">←</button>
+        <span class="detail-topbar-name" id="detailTopName">단지 상세</span>
+      </div>
       <div class="detail-empty" id="detailEmpty">
         <div class="ph-emoji">👈</div>
         <div class="ph-title">단지를 선택해</div>
@@ -85,6 +91,13 @@
       <div class="detail-body" id="detailBody" hidden></div>
     </aside>
   </main>
+
+  <!-- ===== 하단 탭바 (모바일 전용) ===== -->
+  <nav class="tab-bar" id="tabBar" aria-label="뷰 전환">
+    <button class="tab-btn is-active" data-view="list" type="button"><span class="tab-ico">📋</span><span class="tab-txt">목록</span></button>
+    <button class="tab-btn" data-view="map" type="button"><span class="tab-ico">🗺️</span><span class="tab-txt">지도</span></button>
+    <button class="tab-btn" data-view="compare" type="button"><span class="tab-ico">⚖️</span><span class="tab-txt">비교</span></button>
+  </nav>
 
   <!-- ===== 비교 모달 ===== -->
   <div class="modal-overlay" id="compareModal" hidden>
