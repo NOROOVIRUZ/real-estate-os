@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#FF003C" />
-  <title>Real Estate OS · 관심단지</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔴</text></svg>" />
+  <meta name="theme-color" content="#3182F6" />
+  <title>NOROO HOME · 관심 단지</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%233182F6'/><path d='M8 3.5L3.5 7.5V12.5H6.5V9.5H9.5V12.5H12.5V7.5L8 3.5Z' fill='white'/></svg>" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
   <link rel="stylesheet" href="./styles.css" />
@@ -14,15 +14,19 @@
   <header class="app-header">
     <div class="header-inner">
       <div class="brand">
-        <span class="brand-emoji">🏠</span>
+        <span class="brand-logo" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 4.5L4.5 10.8V19.5H10V14.5H14V19.5H19.5V10.8L12 4.5Z" fill="currentColor"/></svg>
+        </span>
         <div>
-          <div class="brand-title">Real Estate OS</div>
-          <div class="brand-sub">관심 단지 · 호가 · 실거래 트래커</div>
+          <div class="brand-title">NOROO HOME</div>
+          <div class="brand-sub">관심 단지 트래커</div>
         </div>
       </div>
       <div class="header-actions">
         <span class="data-badge" id="dataBadge" hidden>샘플</span>
-        <button class="btn-icon btn-settings" id="settingsBtn" type="button" aria-label="설정">⚙️</button>
+        <button class="btn-icon btn-settings" id="settingsBtn" type="button" aria-label="설정">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.08a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56h.08a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z"/></svg>
+        </button>
       </div>
     </div>
   </header>
@@ -32,7 +36,9 @@
     <aside class="panel panel-list" id="panelList">
       <div class="list-controls">
         <div class="search-box">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+          </span>
           <input id="searchInput" type="search" placeholder="단지명 · 주소 검색" autocomplete="off" />
           <button id="clearSearch" class="clear-btn" aria-label="검색 지우기" hidden>✕</button>
         </div>
@@ -43,39 +49,46 @@
           </select>
         </div>
         <div class="actions-row">
-          <button class="btn-add-toggle" id="addToggle" type="button">＋ 단지 추가</button>
+          <button class="btn-add-toggle" id="addToggle" type="button">단지 추가</button>
           <button class="btn-mode btn-refresh btn-refresh-lg" id="refreshBtn" type="button">
             <span class="spinner" id="refreshSpinner" hidden></span>
-            <span id="refreshLabel">🔄 호가 갱신</span>
+            <span id="refreshLabel">호가 갱신</span>
           </button>
         </div>
-        <button class="btn-mode btn-compare-inline" id="compareToggle" type="button">⚖️ 비교하기</button>
+        <button class="btn-mode btn-compare-inline" id="compareToggle" type="button">비교하기</button>
       </div>
       <div class="compare-hint" id="compareHint" hidden>비교할 단지 2개를 선택해</div>
       <div class="result-info"><span id="listCount">—</span></div>
       <div class="complex-list" id="complexList"></div>
       <div class="list-empty" id="listEmpty" hidden></div>
+      <div class="credit">made by noroovirus</div>
     </aside>
 
     <!-- ===== 중: 지도 ===== -->
     <section class="panel panel-map" id="panelMap">
       <div id="map" class="map"></div>
       <div class="map-placeholder" id="mapPlaceholder">
-        <div class="ph-emoji">🗺️</div>
+        <div class="ph-icon" aria-hidden="true">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Z"/><path d="M9 4v14M15 6v14"/></svg>
+        </div>
         <div class="ph-title">지도를 표시할 수 없어</div>
         <div class="ph-sub">설정에서 Kakao 키를 입력하세요</div>
-        <button class="btn-mode" id="mapSettingsBtn" type="button">⚙️ 설정 열기</button>
+        <button class="btn-mode" id="mapSettingsBtn" type="button">설정 열기</button>
       </div>
     </section>
 
     <!-- ===== 우: 상세 ===== -->
     <aside class="panel panel-detail" id="panelDetail">
       <div class="detail-topbar" id="detailTopbar">
-        <button class="detail-back" id="detailBack" type="button" aria-label="목록으로">←</button>
+        <button class="detail-back" id="detailBack" type="button" aria-label="목록으로">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+        </button>
         <span class="detail-topbar-name" id="detailTopName">단지 상세</span>
       </div>
       <div class="detail-empty" id="detailEmpty">
-        <div class="ph-emoji">👈</div>
+        <div class="ph-icon" aria-hidden="true">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V9.5L12 3.5l8 6V20"/><path d="M2.5 20h19"/><path d="M9.5 20v-5.5h5V20"/></svg>
+        </div>
         <div class="ph-title">단지를 선택해</div>
         <div class="ph-sub">왼쪽 목록이나 지도 마커를 클릭</div>
       </div>
@@ -85,16 +98,25 @@
 
   <!-- ===== 하단 탭바 (모바일 전용) ===== -->
   <nav class="tab-bar" id="tabBar" aria-label="뷰 전환">
-    <button class="tab-btn is-active" data-view="list" type="button"><span class="tab-ico">📋</span><span class="tab-txt">목록</span></button>
-    <button class="tab-btn" data-view="map" type="button"><span class="tab-ico">🗺️</span><span class="tab-txt">지도</span></button>
-    <button class="tab-btn" data-view="compare" type="button"><span class="tab-ico">⚖️</span><span class="tab-txt">비교</span></button>
+    <button class="tab-btn is-active" data-view="list" type="button">
+      <span class="tab-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01" stroke-width="2.6"/></svg></span>
+      <span class="tab-txt">목록</span>
+    </button>
+    <button class="tab-btn" data-view="map" type="button">
+      <span class="tab-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3.5 6v14L9 18l6 2 5.5-2V4L15 6 9 4Z"/><path d="M9 4v14M15 6v14"/></svg></span>
+      <span class="tab-txt">지도</span>
+    </button>
+    <button class="tab-btn" data-view="compare" type="button">
+      <span class="tab-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20V10M4 20v-6M16 20V4M22 20H2" /></svg></span>
+      <span class="tab-txt">비교</span>
+    </button>
   </nav>
 
   <!-- ===== 비교 모달 ===== -->
   <div class="modal-overlay" id="compareModal" hidden>
     <div class="modal modal-wide">
       <div class="modal-head">
-        <div class="modal-title">⚖️ 단지 비교</div>
+        <div class="modal-title">단지 비교</div>
         <button class="modal-close" id="compareClose" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body" id="compareBody"></div>
@@ -105,7 +127,7 @@
   <div class="modal-overlay search-overlay" id="searchOverlay" hidden>
     <div class="modal search-modal">
       <div class="modal-head">
-        <div class="modal-title">🔍 단지 검색</div>
+        <div class="modal-title">단지 검색</div>
         <button class="modal-close" id="searchClose" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body search-body">
@@ -133,7 +155,7 @@
   <div class="modal-overlay" id="settingsModal" hidden>
     <div class="modal">
       <div class="modal-head">
-        <div class="modal-title">⚙️ 설정 · API 키</div>
+        <div class="modal-title">설정</div>
         <button class="modal-close" id="settingsClose" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
@@ -142,13 +164,14 @@
           <label for="kakaoKey">Kakao Maps JavaScript 키</label>
           <input id="kakaoKey" type="text" placeholder="예: 1a2b3c..." autocomplete="off" spellcheck="false" />
           <a class="field-link" href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com 에서 발급 →</a>
-          <p class="field-hint">🔒 developers.kakao.com에서 이 키의 허용 도메인을 등록하면 키가 노출돼도 다른 사이트에서 못 씁니다.</p>
+          <p class="field-hint">developers.kakao.com에서 이 키의 허용 도메인을 등록하면 키가 노출돼도 다른 사이트에서 못 씁니다.</p>
         </div>
         <p class="settings-desc">국토부 실거래 키는 서버(Cloudflare Worker)에만 저장돼 처리됩니다. 브라우저에 국토부 키를 넣지 않아요.</p>
         <div class="settings-actions">
           <button class="btn-primary" id="settingsSave" type="button">저장</button>
           <span class="saved-flag" id="settingsSaved" hidden>저장됨 ✓</span>
         </div>
+        <div class="credit credit-modal">made by noroovirus</div>
       </div>
     </div>
   </div>

@@ -1,7 +1,7 @@
 'use strict';
 
 /* ============================================================
-   Real Estate OS — 프론트엔드 단일 스크립트
+   NOROO HOME — 프론트엔드 단일 스크립트
    순수 정적 · localStorage · Kakao Maps
    실거래(국토부)는 수집기가 data.json에 미리 넣어줌 → 프론트는 표시만
    ============================================================ */
@@ -204,13 +204,13 @@ function renderList() {
     wrap.innerHTML = '';
     empty.hidden = false;
     if (state.dataEmpty) {
-      empty.innerHTML = `<div class="ph-emoji">📭</div>
+      empty.innerHTML = `<div class="ph-icon" aria-hidden="true"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V9.5L12 3.5l8 6V20"/><path d="M2.5 20h19"/><path d="M9.5 20v-5.5h5V20"/></svg></div>
         <div class="ph-title">아직 수집된 데이터가 없어</div>
-        <div class="ph-sub">＋ 단지 추가로 관심 단지를 등록하고<br />🔄 호가 갱신을 누르세요</div>`;
+        <div class="ph-sub">단지 추가로 관심 단지를 등록하고<br />호가 갱신을 누르세요</div>`;
     } else {
-      empty.innerHTML = `<div class="ph-emoji">📡</div>
+      empty.innerHTML = `<div class="ph-icon" aria-hidden="true"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4.5M12 15.8v.2"/></svg></div>
         <div class="ph-title">데이터를 불러오지 못했어</div>
-        <div class="ph-sub">＋ 단지 추가로 시작하거나<br />🔄 호가 갱신을 눌러 다시 시도해</div>`;
+        <div class="ph-sub">단지 추가로 시작하거나<br />호가 갱신을 눌러 다시 시도해</div>`;
     }
     return;
   }
@@ -224,7 +224,7 @@ function renderList() {
     const uncollected = c.collected === false;
     const badge = uncollected ? '<span class="item-badge">미수집</span>' : '';
     const sub = uncollected
-      ? '<span class="sub-uncollected">아직 수집 안 됨 · 🔄 갱신 필요</span>'
+      ? '<span class="sub-uncollected">아직 수집 안 됨 · 갱신 필요</span>'
       : escapeHtml(c.address || '');
     return `<div class="complex-item${active}${selected}" data-no="${c.complexNo}">
       <span class="pin-dot pin-${c.pinColor || 'red'}"></span>
@@ -318,7 +318,7 @@ function renderDetail(no) {
     </div>
 
     <div class="d-section">
-      <div class="d-section-title">💰 현재 호가 <span class="muted">${listings.length}건</span></div>
+      <div class="d-section-title">현재 호가 <span class="muted">${listings.length}건</span></div>
       ${listings.length ? `
         <div class="price-summary">
           <div class="price-box"><div class="label">최저</div><div class="val">${fmtEok(min)}</div></div>
@@ -333,12 +333,12 @@ function renderDetail(no) {
           </div>`;
         }).join('')}
       ` : (c.collected === false
-        ? `<div class="notice warn">아직 수집 안 됨 — 🔄 호가 갱신을 눌러 수집해</div>`
+        ? `<div class="notice warn">아직 수집 안 됨 — 호가 갱신을 눌러 수집해</div>`
         : `<div class="notice">등록된 호가가 없어</div>`)}
     </div>
 
     <div class="d-section">
-      <div class="d-section-title">🎯 목표 매수가</div>
+      <div class="d-section-title">목표 매수가</div>
       <div class="target-row">
         <input class="target-input" id="targetInput" type="number" inputmode="numeric" placeholder="만원 단위" value="${target || ''}" />
         <span class="target-suffix">만원</span>
@@ -347,13 +347,13 @@ function renderDetail(no) {
     </div>
 
     <div class="d-section">
-      <div class="d-section-title">📈 실거래가 <span class="muted" id="dealsCount"></span></div>
+      <div class="d-section-title">실거래가 <span class="muted" id="dealsCount"></span></div>
       <div id="dealsArea"><div class="notice">불러오는 중…</div></div>
       <div id="dealsChart"></div>
     </div>
 
     <div class="d-section">
-      <div class="d-section-title">📝 메모 <span class="saved-flag" id="memoSaved" hidden>저장됨 ✓</span></div>
+      <div class="d-section-title">메모 <span class="saved-flag" id="memoSaved" hidden>저장됨 ✓</span></div>
       <textarea class="memo-area" id="memoArea" placeholder="이 단지에 대한 메모…">${escapeHtml(LS.get(K.notes(c.complexNo), ''))}</textarea>
     </div>
   `;
@@ -381,7 +381,7 @@ function renderDetail(no) {
     const t = Number(ti.value) || 0;
     const badge = $('targetBadge');
     if (t > 0 && min != null) {
-      if (min <= t) badge.innerHTML = `<div class="target-badge hit">현재 최저 호가 ${fmtEok(min)} — 목표 이하 달성! 🔥</div>`;
+      if (min <= t) badge.innerHTML = `<div class="target-badge hit">현재 최저 호가 ${fmtEok(min)} — 목표 이하 달성</div>`;
       else badge.innerHTML = `<div class="target-badge miss">최저 ${fmtEok(min)} · 목표까지 ${fmtEok(min - t)} 더</div>`;
     } else badge.innerHTML = '';
   };
@@ -452,13 +452,13 @@ function renderChart(deals) {
   const y = (v) => pad + (1 - (v - min) / range) * (H - pad - bottom);
 
   const line = pts.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const dots = pts.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.5" fill="#ff003c"/>`).join('');
+  const dots = pts.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.5" fill="#3182f6"/>`).join('');
   const area = `${line} L${x(n - 1).toFixed(1)},${H - bottom} L${x(0).toFixed(1)},${H - bottom} Z`;
 
   return `<div class="chart-wrap">
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="실거래가 추이">
-      <path d="${area}" fill="rgba(255,0,60,0.08)"/>
-      <path d="${line}" fill="none" stroke="#ff003c" stroke-width="2"/>
+      <path d="${area}" fill="rgba(49,130,246,0.08)"/>
+      <path d="${line}" fill="none" stroke="#3182f6" stroke-width="2"/>
       ${dots}
       <text x="${pad}" y="${H - 4}" font-size="10" fill="#8b95a1">${fmtEok(pts[0])}</text>
       <text x="${W - pad}" y="${H - 4}" font-size="10" fill="#8b95a1" text-anchor="end">${fmtEok(pts[n - 1])}</text>
@@ -470,7 +470,7 @@ function renderChart(deals) {
 //  Kakao 지도
 // ============================================================
 function pinImageSrc(color) {
-  const map = { red: '#ff003c', yellow: '#f59f00', green: '#12b886', blue: '#3182f6' };
+  const map = { red: '#f04452', yellow: '#f5a524', green: '#17b26a', blue: '#3182f6' };
   const fill = map[color] || map.red;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="40" viewBox="0 0 30 40">
     <path d="M15 0C6.7 0 0 6.7 0 15c0 10 15 25 15 25s15-15 15-25C30 6.7 23.3 0 15 0z" fill="${fill}"/>
@@ -665,7 +665,7 @@ function setRefreshBusy(busy) {
   btn.disabled = busy;
   btn.classList.toggle('busy', busy);
   if (sp) sp.hidden = !busy;
-  if (label) label.textContent = busy ? '갱신 중…' : '🔄 호가 갱신';
+  if (label) label.textContent = busy ? '갱신 중…' : '호가 갱신';
 }
 
 async function doCollect() {
@@ -679,9 +679,9 @@ async function doCollect() {
     await reloadAndRender();
     const count = json.count != null ? json.count : state.complexes.length;
     const secs = json.ms != null ? (json.ms / 1000).toFixed(1) : '?';
-    toast(`✅ ${count}개 단지 갱신 완료 (${secs}초)`, 'success');
+    toast(`${count}개 단지 갱신 완료 (${secs}초)`, 'success');
   } catch (err) {
-    toast(`❌ 갱신 실패: ${err.message || err}`, 'error', 5000);
+    toast(`갱신 실패: ${err.message || err}`, 'error', 5000);
   } finally {
     setRefreshBusy(false);
   }
@@ -764,7 +764,7 @@ async function doSearch() {
 
     // 429: 네이버 과다요청 차단 (status 또는 에러 메시지로 감지)
     if (res.status === 429 || /\b429\b|too many|과다|자주/i.test(json.error || '')) {
-      setSearchStatus('⏳ 지금 너무 자주 요청했어요. <b>1분 뒤</b> 다시 시도해줘.', 'warn');
+      setSearchStatus('지금 너무 자주 요청했어요. <b>1분 뒤</b> 다시 시도해줘.', 'warn');
       return;
     }
     if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
@@ -784,7 +784,7 @@ async function doSearch() {
     $('searchFilter').hidden = false;
     updateSearchView();
   } catch (err) {
-    setSearchStatus(`❌ 검색 실패: ${escapeHtml(err.message || String(err))}`, 'warn');
+    setSearchStatus(`검색 실패: ${escapeHtml(err.message || String(err))}`, 'warn');
   } finally {
     setSearchBusy(false);
   }
@@ -833,7 +833,7 @@ function updateSearchView() {
         ${meta.length ? `<div class="sr-meta">${meta.join(' · ')}</div>` : ''}
       </div>
       <button class="sr-add${added ? ' added' : ''}" data-add="${i}" ${added ? 'disabled' : ''} type="button">
-        ${added ? '추가됨 ✓' : '＋ 추가'}
+        ${added ? '추가됨' : '추가'}
       </button>
     </div>`;
   }).join('');
@@ -872,10 +872,10 @@ async function addFromSearch(idx, btn) {
     state.watchlistNos.add(no);
     renderSearchResults();
     await reloadAndRender();
-    toast(`➕ 추가됨: ${name} — 🔄 호가 갱신을 눌러 수집해`, 'success', 4200);
+    toast(`추가됨: ${name} — 호가 갱신을 눌러 수집해`, 'success', 4200);
   } catch (err) {
-    if (btn) { btn.disabled = false; btn.textContent = '＋ 추가'; }
-    toast(`❌ 추가 실패: ${err.message || err}`, 'error', 5000);
+    if (btn) { btn.disabled = false; btn.textContent = '추가'; }
+    toast(`추가 실패: ${err.message || err}`, 'error', 5000);
   }
 }
 
@@ -894,9 +894,9 @@ async function removeComplex(complexNo) {
     if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
     if (state.selectedNo === complexNo) state.selectedNo = null;
     await reloadAndRender();
-    toast(`🗑️ 삭제됨: ${name}`, 'success');
+    toast(`삭제됨: ${name}`, 'success');
   } catch (err) {
-    toast(`❌ 삭제 실패: ${err.message || err}`, 'error', 5000);
+    toast(`삭제 실패: ${err.message || err}`, 'error', 5000);
   }
 }
 
@@ -923,7 +923,7 @@ async function setPinColor(complexNo, pinColor) {
     renderList();
     renderMarkers();
     if (state.selectedNo === complexNo) renderDetail(complexNo);
-    toast(`❌ 핀색 변경 실패: ${err.message || err}`, 'error', 4000);
+    toast(`핀색 변경 실패: ${err.message || err}`, 'error', 4000);
   }
 }
 
