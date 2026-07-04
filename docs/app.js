@@ -42,6 +42,10 @@ const state = {
   sort: 'rating_desc',
   compareMode: false,
   compareSel: [],   // complexNo 최대 2개
+  searchBusy: false,        // 검색 요청 진행 중
+  searchResults: [],        // 마지막 검색 후보 목록 (원본 전체)
+  aptOnly: true,            // 검색결과 필터: 아파트(APT)만 (기본 ON)
+  watchlistNos: new Set(),  // 이미 watchlist 에 등록된 complexNo (검색결과 '추가됨' 판정용)
   view: 'list',       // 모바일 뷰: 'list' | 'map'
   detailOpen: false,  // 모바일 상세 오버레이 열림 여부
   map: null,
@@ -115,33 +119,53 @@ function closeDetail() {
 //  데이터 로드
 // ============================================================
 async function loadData() {
-  // 1) Worker API 우선
+  // 목록의 소스 = watchlist(뭐가 보이나), 각 단지 호가/실거래 = data(내용).
+  // 둘을 complexNo 로 병합. → 추가만 하고 아직 수집 안 한 단지도 목록에 바로 보임.
+  let wl = null, dataArr = null;
+  try {
+    const res = await fetch(apiUrl('/api/watchlist'), { cache: 'no-store' });
+    if (res.ok) { const j = await res.json(); if (j && Array.isArray(j.complexes)) wl = j.complexes; }
+  } catch { /* API 미도달 → 샘플 폴백 */ }
   try {
     const res = await fetch(apiUrl('/api/data'), { cache: 'no-store' });
-    if (res.ok) {
-      const json = await res.json();
-      if (json && Array.isArray(json.complexes)) {
-        if (json.complexes.length) {
-          state.complexes = json.complexes;
-          state.isSample = false;
-          state.dataEmpty = false;
-          return;
-        }
-        // API는 살아있지만 아직 수집된 단지가 없음 → 빈 상태 안내
-        state.complexes = [];
-        state.isSample = false;
-        state.dataEmpty = true;
-        return;
-      }
-    }
-  } catch { /* API 미도달 → 샘플 폴백 */ }
+    if (res.ok) { const j = await res.json(); if (j && Array.isArray(j.complexes)) dataArr = j.complexes; }
+  } catch { /* data 없어도 watchlist 로 목록은 그림 */ }
 
-  // 2) 샘플 폴백 (API 미배포/오프라인 개발용)
+  if (wl !== null) {
+    const dmap = new Map((dataArr || []).map((c) => [String(c.complexNo), c]));
+    state.complexes = wl.map((w) => {
+      const no = String(w.complexNo);
+      const d = dmap.get(no);
+      if (d) {
+        // 수집됨: data 내용 + watchlist 의 핀색/이름 우선
+        return {
+          ...d,
+          complexNo: no,
+          name: w.name || d.name,
+          lawdCd: w.lawdCd || d.lawdCd,
+          pinColor: w.pinColor || d.pinColor || 'red',
+          collected: true,
+        };
+      }
+      // 미수집: watchlist 정보만 (호가/실거래 없음)
+      return {
+        complexNo: no, name: w.name, lawdCd: w.lawdCd, pinColor: w.pinColor || 'red',
+        address: null, lat: null, lng: null, householdCount: null, useApproveYmd: null,
+        listings: [], deals: [], collected: false,
+      };
+    });
+    state.watchlistNos = new Set(wl.map((c) => String(c.complexNo)));
+    state.isSample = false;
+    state.dataEmpty = state.complexes.length === 0;
+    return;
+  }
+
+  // 샘플 폴백 (API 미배포/오프라인 개발용)
   try {
     const res = await fetch('./data.sample.json', { cache: 'no-store' });
     if (res.ok) {
       const json = await res.json();
-      state.complexes = json.complexes || [];
+      state.complexes = (json.complexes || []).map((c) => ({ ...c, collected: true }));
       state.isSample = true;
       state.dataEmpty = false;
       return;
@@ -197,11 +221,16 @@ function renderList() {
     const active = c.complexNo === state.selectedNo ? ' active' : '';
     const selected = state.compareSel.includes(c.complexNo) ? ' selected' : '';
     const check = selected ? '<span class="item-check">✓</span>' : '';
+    const uncollected = c.collected === false;
+    const badge = uncollected ? '<span class="item-badge">미수집</span>' : '';
+    const sub = uncollected
+      ? '<span class="sub-uncollected">아직 수집 안 됨 · 🔄 갱신 필요</span>'
+      : escapeHtml(c.address || '');
     return `<div class="complex-item${active}${selected}" data-no="${c.complexNo}">
       <span class="pin-dot pin-${c.pinColor || 'red'}"></span>
       <div class="item-main">
-        <div class="item-name">${escapeHtml(c.name)}</div>
-        <div class="item-sub">${escapeHtml(c.address || '')}</div>
+        <div class="item-name">${escapeHtml(c.name)}${badge}</div>
+        <div class="item-sub">${sub}</div>
       </div>
       <span class="item-rating">${r ? '★'.repeat(r) : ''}</span>
       ${check}
@@ -303,7 +332,9 @@ function renderDetail(no) {
             <span class="lr-date">${fmtYmd(l.confirmYmd)}</span>
           </div>`;
         }).join('')}
-      ` : `<div class="notice">등록된 호가가 없어</div>`}
+      ` : (c.collected === false
+        ? `<div class="notice warn">아직 수집 안 됨 — 🔄 호가 갱신을 눌러 수집해</div>`
+        : `<div class="notice">등록된 호가가 없어</div>`)}
     </div>
 
     <div class="d-section">
@@ -656,41 +687,195 @@ async function doCollect() {
   }
 }
 
-function setAddBusy(busy) {
-  const btn = $('addSubmit');
-  const sp = $('addSpinner');
-  const label = $('addSubmitLabel');
-  const input = $('addInput');
-  if (!btn) return;
-  btn.disabled = busy;
-  if (input) input.disabled = busy;
-  if (sp) sp.hidden = !busy;
-  if (label) label.textContent = busy ? '추가 중…' : '추가';
+// ---------- 검색 오버레이 (네이버식 검색 → 후보 목록 → 골라서 추가) ----------
+function openSearchOverlay() {
+  const ov = $('searchOverlay');
+  if (!ov) return;
+  ov.hidden = false;
+  // 이전 검색 잔상 초기화
+  state.searchResults = [];
+  state.aptOnly = true;
+  const cb = $('aptOnly'); if (cb) cb.checked = true;
+  $('searchResults').innerHTML = '';
+  $('searchFilter').hidden = true;
+  setSearchStatus('', null);
+  // 이미 등록된 단지 목록을 미리 받아 '추가됨' 판정에 사용 (실패해도 검색은 가능)
+  refreshWatchlistNos();
+  const kw = $('searchKeyword');
+  if (kw) { setTimeout(() => kw.focus(), 50); }
 }
 
-async function addComplex() {
-  const input = $('addInput');
+function closeSearchOverlay() {
+  const ov = $('searchOverlay');
+  if (ov) ov.hidden = true;
+}
+
+// watchlist 를 받아 등록된 complexNo Set 구성 (검색결과에서 '추가됨' 표시용)
+async function refreshWatchlistNos() {
+  try {
+    const res = await fetch(apiUrl('/api/watchlist'), { cache: 'no-store' });
+    if (!res.ok) return;
+    const json = await res.json().catch(() => ({}));
+    const arr = (json && Array.isArray(json.complexes)) ? json.complexes : [];
+    state.watchlistNos = new Set(arr.map((c) => String(c.complexNo)));
+    if (state.searchResults.length) renderSearchResults(); // 이미 뜬 목록의 버튼 상태 갱신
+  } catch { /* 무시 — 없어도 검색 자체는 됨 */ }
+}
+
+function setSearchBusy(busy) {
+  state.searchBusy = busy;
+  const btn = $('searchGo');
+  const sp = $('searchSpinner');
+  const label = $('searchGoLabel');
+  const input = $('searchKeyword');
+  if (btn) btn.disabled = busy;
+  if (input) input.disabled = busy;
+  if (sp) sp.hidden = !busy;
+  if (label) label.textContent = busy ? '검색 중…' : '검색';
+}
+
+function setSearchStatus(html, kind) {
+  const el = $('searchStatus');
+  if (!el) return;
+  if (!html) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.className = 'search-status' + (kind ? ' is-' + kind : '');
+  el.innerHTML = html;
+}
+
+async function doSearch() {
+  if (state.searchBusy) return;
+  const input = $('searchKeyword');
   if (!input) return;
   const keyword = input.value.trim();
   if (!keyword) { input.focus(); return; }
-  setAddBusy(true);
+
+  setSearchBusy(true);
+  state.searchResults = [];
+  $('searchResults').innerHTML = '';
+  setSearchStatus(
+    `<span class="spinner"></span> 네이버에서 검색 중… <span class="muted">(몇 초 걸려요)</span>`,
+    'loading'
+  );
+
+  try {
+    const res = await fetch(apiUrl('/api/search?keyword=' + encodeURIComponent(keyword)), { cache: 'no-store' });
+    const json = await res.json().catch(() => ({}));
+
+    // 429: 네이버 과다요청 차단 (status 또는 에러 메시지로 감지)
+    if (res.status === 429 || /\b429\b|too many|과다|자주/i.test(json.error || '')) {
+      setSearchStatus('⏳ 지금 너무 자주 요청했어요. <b>1분 뒤</b> 다시 시도해줘.', 'warn');
+      return;
+    }
+    if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
+
+    const list = Array.isArray(json.complexes) ? json.complexes : [];
+    state.searchResults = list;
+
+    if (!list.length) {
+      $('searchFilter').hidden = true;
+      setSearchStatus(
+        '검색 결과가 없어. 다른 검색어를 써봐 <span class="muted">(단지명 일부, 역명 등)</span>.',
+        'empty'
+      );
+      return;
+    }
+    // 결과 있음 → 타입 필터 노출 후 필터 반영 렌더
+    $('searchFilter').hidden = false;
+    updateSearchView();
+  } catch (err) {
+    setSearchStatus(`❌ 검색 실패: ${escapeHtml(err.message || String(err))}`, 'warn');
+  } finally {
+    setSearchBusy(false);
+  }
+}
+
+// 타입 필터(아파트만/전체) 반영해 상태문구 + 목록을 갱신. renderSearchResults 대체.
+function updateSearchView() {
+  const wrap = $('searchResults');
+  if (!wrap) return;
+  const all = state.searchResults;
+  if (!all.length) { wrap.innerHTML = ''; return; }
+
+  // 원본 인덱스를 유지한 채 필터 (addFromSearch가 원본 배열 인덱스 참조)
+  const visible = all
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => !state.aptOnly || String(c.realEstateTypeCode) === 'APT');
+
+  if (!visible.length) {
+    // 결과는 있으나 아파트만 필터로 전부 걸러짐
+    wrap.innerHTML = '';
+    setSearchStatus(
+      '이 검색어엔 <b>아파트가 없어</b>. <span class="muted">아파트만 보기를 끄면 빌라·오피스텔 등을 볼 수 있어.</span>',
+      'warn'
+    );
+    return;
+  }
+
+  const label = state.aptOnly ? '아파트' : '단지';
+  setSearchStatus(`<b>${visible.length}개</b> ${label}를 찾았어. 추가할 단지를 골라.`, 'ok');
+
+  wrap.innerHTML = visible.map(({ c, i }) => {
+    const no = String(c.complexNo);
+    const added = state.watchlistNos.has(no);
+    const isApt = String(c.realEstateTypeCode) === 'APT';
+    const typeName = c.realEstateTypeName || (isApt ? '아파트' : '');
+    const meta = [];
+    if (c.householdCount) meta.push(`${Number(c.householdCount).toLocaleString()}세대`);
+    if (c.useApproveYmd) meta.push(`준공 ${fmtYmd(c.useApproveYmd)}`);
+    return `<div class="sr-item" data-i="${i}">
+      <div class="sr-main">
+        <div class="sr-name">
+          ${escapeHtml(c.name || '(이름 없음)')}
+          ${typeName ? `<span class="sr-type${isApt ? ' apt' : ''}">${escapeHtml(typeName)}</span>` : ''}
+        </div>
+        <div class="sr-addr">${escapeHtml(c.address || '')}</div>
+        ${meta.length ? `<div class="sr-meta">${meta.join(' · ')}</div>` : ''}
+      </div>
+      <button class="sr-add${added ? ' added' : ''}" data-add="${i}" ${added ? 'disabled' : ''} type="button">
+        ${added ? '추가됨 ✓' : '＋ 추가'}
+      </button>
+    </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.sr-add').forEach((btn) => {
+    btn.addEventListener('click', () => addFromSearch(Number(btn.dataset.add), btn));
+  });
+}
+// 하위 호환 별칭 (add 후 버튼상태 갱신 호출부에서 사용)
+function renderSearchResults() { updateSearchView(); }
+
+async function addFromSearch(idx, btn) {
+  const c = state.searchResults[idx];
+  if (!c) return;
+  const no = String(c.complexNo);
+  if (state.watchlistNos.has(no)) { toast('이미 추가된 단지야', 'info'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = '추가 중…'; }
   try {
     const res = await fetch(apiUrl('/api/watchlist/add'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword }),
+      body: JSON.stringify({ complexNo: no, name: c.name, lawdCd: c.lawdCd, pinColor: 'yellow' }),
     });
     const json = await res.json().catch(() => ({}));
+
+    // 서버가 '이미 있음' 을 error 로 돌려주는 케이스 처리
+    if (json && json.error && /이미|already|exist/i.test(json.error)) {
+      state.watchlistNos.add(no);
+      renderSearchResults();
+      toast(`이미 추가된 단지: ${c.name}`, 'info');
+      return;
+    }
     if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
-    const name = (json.added && json.added.name) || keyword;
-    input.value = '';
-    $('addForm').hidden = true;
+
+    const name = (json.added && json.added.name) || c.name;
+    state.watchlistNos.add(no);
+    renderSearchResults();
     await reloadAndRender();
     toast(`➕ 추가됨: ${name} — 🔄 호가 갱신을 눌러 수집해`, 'success', 4200);
   } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = '＋ 추가'; }
     toast(`❌ 추가 실패: ${err.message || err}`, 'error', 5000);
-  } finally {
-    setAddBusy(false);
   }
 }
 
@@ -760,16 +945,11 @@ function bindEvents() {
   // 호가 갱신
   $('refreshBtn').addEventListener('click', doCollect);
 
-  // 단지 추가 토글 + 제출
-  $('addToggle').addEventListener('click', () => {
-    const form = $('addForm');
-    form.hidden = !form.hidden;
-    if (!form.hidden) $('addInput').focus();
-  });
-  $('addSubmit').addEventListener('click', addComplex);
-  $('addInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); addComplex(); }
-  });
+  // 단지 추가 → 검색 오버레이 (네이버식 검색→후보 선택→추가)
+  $('addToggle').addEventListener('click', openSearchOverlay);
+  $('searchClose').addEventListener('click', closeSearchOverlay);
+  $('searchForm').addEventListener('submit', (e) => { e.preventDefault(); doSearch(); });
+  $('aptOnly').addEventListener('change', (e) => { state.aptOnly = e.target.checked; updateSearchView(); });
 
   $('compareToggle').addEventListener('click', () => setCompareMode(!state.compareMode));
   $('compareClose').addEventListener('click', () => { $('compareModal').hidden = true; });

@@ -24,7 +24,8 @@ worker/
 |--------|------|------|
 | GET | `/api/data` | KV `data` (없으면 `{generatedAt:null, complexes:[]}`) |
 | GET | `/api/watchlist` | KV `watchlist` (없으면 `{complexes:[]}`) |
-| POST | `/api/watchlist/add` | `{keyword}` → 네이버 검색 첫 결과 추가 |
+| GET | `/api/search?keyword=` | Browser Rendering 으로 네이버 검색 → 후보 단지 목록 전체 `{complexes:[...]}` |
+| POST | `/api/watchlist/add` | `{complexNo,name,lawdCd,pinColor?}` 즉시 추가(브라우저 X). 하위호환 `{keyword}` → 검색 첫 결과 추가 |
 | POST | `/api/watchlist/remove` | `{complexNo}` → 제거 |
 | POST | `/api/watchlist/pin` | `{complexNo, pinColor}` → 핀색 변경 |
 | POST | `/api/collect` | watchlist 전체 수집 → KV `data` 저장 |

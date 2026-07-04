@@ -15,7 +15,10 @@ Cloudflare Worker 단일 배포. Browser Rendering(네이버 수집) + 국토부
 | GET | `/` | 프론트 HTML (Worker static assets = docs/) | HTML |
 | GET | `/api/data` | KV의 `data` 반환. 없으면 `{generatedAt:null, complexes:[]}` | data 객체 |
 | GET | `/api/watchlist` | KV의 `watchlist` 반환 | watchlist 객체 |
-| POST | `/api/watchlist/add` | body `{keyword}` → 네이버 검색 첫 결과를 watchlist 추가(complexNo/name/lawdCd 자동). Browser Rendering으로 검색. | `{added: {...}}` 또는 `{error}` |
+| GET | `/api/search?keyword=` | Browser Rendering으로 네이버 검색 → **후보 단지 목록 전체** 반환(첫 결과만 아님). 순수 fetch 불가(네이버가 브라우저 아닌 요청 429 차단, 실측). | `{complexes:[{complexNo,name,lawdCd,address,lat,lng,householdCount,useApproveYmd,realEstateTypeCode,realEstateTypeName}]}` |
+
+**부동산 타입** (`realEstateTypeCode`): `APT`(아파트) `VL`(빌라/연립) `OPST`(오피스텔) `JGC`(재건축) `ABYG`(분양권) 등. 프론트가 "아파트만" 필터에 사용(기본 아파트만 표시, 빌라·오피스텔 제외).
+| POST | `/api/watchlist/add` | body `{complexNo, name, lawdCd, pinColor?}` → 검색으로 고른 단지를 watchlist 추가(브라우저 불필요, 검색결과 재사용). 하위호환: `{keyword}`만 오면 기존처럼 검색해서 첫 결과 추가. | `{added: {...}}` 또는 `{error}` |
 | POST | `/api/watchlist/remove` | body `{complexNo}` → watchlist 제거 | `{removed: complexNo}` |
 | POST | `/api/watchlist/pin` | body `{complexNo, pinColor}` → 핀색 변경 | `{ok:true}` |
 | POST | `/api/collect` | watchlist 전체 수집(네이버 호가 + 국토부 실거래) → KV `data` 저장 | `{ok, count, ms, generatedAt}` |

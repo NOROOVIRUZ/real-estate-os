@@ -129,6 +129,12 @@ code { font-family: 'Pretendard', ui-monospace, monospace; background: var(--col
 .item-name { font-size: 14px; font-weight: 800; letter-spacing: -0.01em; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item-sub { font-size: 11px; color: var(--color-text-muted); font-weight: 500; margin-top: 2px; }
 .item-rating { font-size: 12px; font-weight: 700; color: var(--color-yellow); flex-shrink: 0; }
+.item-badge {
+  display: inline-block; font-size: 9px; font-weight: 800; vertical-align: 1px;
+  padding: 1px 6px; border-radius: 999px; margin-left: 6px;
+  background: var(--color-accent-soft); color: var(--color-accent); letter-spacing: 0.02em;
+}
+.sub-uncollected { color: var(--color-accent); font-weight: 700; }
 .item-check { position: absolute; top: 8px; right: 10px; font-size: 13px; color: var(--color-accent); font-weight: 800; }
 
 .list-empty, .detail-empty, .map-placeholder {
@@ -330,6 +336,77 @@ code { font-family: 'Pretendard', ui-monospace, monospace; background: var(--col
 .toast-error { background: #e03131; }
 .toast-info { background: var(--color-text); }
 
+/* ===== 단지 검색 오버레이 (네이버식 검색→후보→추가) ===== */
+.search-modal { max-width: 480px; display: flex; flex-direction: column; max-height: 86vh; }
+.search-body { display: flex; flex-direction: column; min-height: 0; gap: 12px; padding-top: 4px; }
+.search-bar { display: flex; gap: 8px; }
+.search-bar #searchKeyword {
+  flex: 1; min-width: 0; height: 46px; border: 1.5px solid var(--color-divider);
+  border-radius: var(--radius-input); padding: 0 14px; font-size: 15px; font-weight: 500;
+  background: var(--color-card); outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.search-bar #searchKeyword:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-soft); }
+.search-bar #searchKeyword::placeholder { color: var(--color-text-muted); }
+.search-go { display: inline-flex; align-items: center; gap: 5px; height: 46px; padding: 0 20px; white-space: nowrap; }
+.search-go:disabled { opacity: 0.75; cursor: progress; }
+
+.search-status {
+  font-size: 13px; line-height: 1.55; color: var(--color-text-sub);
+  background: var(--color-surface); border-radius: var(--radius-input); padding: 11px 14px;
+}
+.search-status .muted { color: var(--color-text-muted); }
+.search-status .spinner { color: var(--color-accent); vertical-align: -1px; margin-right: 4px; }
+.search-status.is-loading { color: var(--color-text); }
+.search-status.is-ok { color: var(--color-text); background: var(--color-accent-soft); }
+.search-status.is-warn { color: var(--color-accent); background: var(--color-accent-soft); font-weight: 600; }
+.search-status.is-empty { color: var(--color-text-sub); }
+
+/* 아파트만/전체 토글 */
+.search-filter { display: flex; align-items: center; }
+.filter-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.filter-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ft-track {
+  width: 40px; height: 22px; border-radius: 999px; background: var(--color-divider);
+  position: relative; flex-shrink: 0; transition: background 0.15s;
+}
+.ft-thumb {
+  position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: transform 0.15s;
+}
+.filter-toggle input:checked + .ft-track { background: var(--color-accent); }
+.filter-toggle input:checked + .ft-track .ft-thumb { transform: translateX(18px); }
+.ft-label { font-size: 13px; font-weight: 700; color: var(--color-text-sub); }
+.filter-toggle input:checked ~ .ft-label { color: var(--color-accent); }
+
+.sr-type {
+  display: inline-block; font-size: 10px; font-weight: 800; vertical-align: 2px;
+  padding: 2px 7px; border-radius: 999px; margin-left: 6px;
+  background: var(--color-surface); color: var(--color-text-muted);
+}
+.sr-type.apt { background: var(--color-accent-soft); color: var(--color-accent); }
+
+.search-results { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0; }
+.sr-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--color-card); border: 1px solid var(--color-divider);
+  border-radius: var(--radius-card); padding: 12px 14px; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.sr-item:hover { border-color: var(--color-accent); box-shadow: var(--shadow-hover); }
+.sr-main { flex: 1; min-width: 0; }
+.sr-name { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--color-text); }
+.sr-addr { font-size: 12px; color: var(--color-text-sub); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; }
+.sr-meta { font-size: 11px; color: var(--color-text-muted); margin-top: 3px; font-weight: 600; }
+.sr-add {
+  flex-shrink: 0; height: 36px; padding: 0 15px; border-radius: var(--radius-chip);
+  border: none; background: var(--color-accent); color: #fff; font-size: 13px; font-weight: 800;
+  cursor: pointer; transition: background 0.15s; white-space: nowrap;
+}
+.sr-add:hover { background: var(--color-accent-hover); }
+.sr-add.added, .sr-add:disabled {
+  background: var(--color-surface); color: var(--color-text-muted);
+  border: 1.5px solid var(--color-divider); cursor: default;
+}
+
 /* ============================================================
    Mobile (<768px): 탭 기반 단일 뷰 + 상세 전체화면 오버레이
    데스크톱(≥768px)은 위의 3패널 레이아웃 그대로 유지
@@ -423,4 +500,14 @@ code { font-family: 'Pretendard', ui-monospace, monospace; background: var(--col
   .modal-overlay { padding: 10px; align-items: flex-end; }
   .modal { max-width: 100%; max-height: 84vh; border-radius: 18px; }
   .modal-body { overflow-x: auto; }
+
+  /* --- 검색은 전체화면 오버레이 (네이버식) --- */
+  .search-overlay { padding: 0; align-items: stretch; backdrop-filter: none; }
+  .search-modal {
+    max-width: 100%; max-height: none; width: 100%; height: 100%;
+    height: 100dvh; border-radius: 0; box-shadow: none;
+  }
+  .search-modal .modal-head { padding-top: calc(16px + env(safe-area-inset-top)); }
+  .search-body { flex: 1; overflow: hidden; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  .search-body .modal-body { overflow-x: visible; }
 }

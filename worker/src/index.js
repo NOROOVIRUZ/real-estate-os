@@ -247,6 +247,30 @@ async function searchComplex({ fetchOnNaver }, keyword) {
   return list[0] || null;
 }
 
+// 네이버 검색 원본 complexes[] → 프론트가 쓰는 필드로 정규화.
+function normalizeComplex(c) {
+  const cortarNo = String(c.cortarNo || '');
+  return {
+    complexNo: String(c.complexNo),
+    name: c.complexName || null,
+    lawdCd: cortarNo.slice(0, 5),
+    address: c.cortarAddress || null,
+    lat: c.latitude != null ? Number(c.latitude) : null,
+    lng: c.longitude != null ? Number(c.longitude) : null,
+    householdCount: c.totalHouseholdCount != null ? Number(c.totalHouseholdCount) : null,
+    useApproveYmd: c.useApproveYmd || null,
+    realEstateTypeCode: c.realEstateTypeCode || null, // APT(아파트) VL(빌라) OPST(오피스텔) JGC(재건축) ABYG(분양권)
+    realEstateTypeName: c.realEstateTypeName || null,
+  };
+}
+
+// 검색 후보 전체 목록(첫 결과로 자르지 않음).
+async function searchComplexes({ fetchOnNaver }, keyword) {
+  const data = await fetchOnNaver('/api/search?keyword=' + encodeURIComponent(keyword));
+  const list = (data && data.complexes) || [];
+  return list.map(normalizeComplex);
+}
+
 async function fetchArticles({ fetchOnNaver }, complexNo) {
   const rel =
     '/api/articles/complex/' + encodeURIComponent(complexNo) +
@@ -259,26 +283,51 @@ async function fetchArticles({ fetchOnNaver }, complexNo) {
 
 // ── 엔드포인트 핸들러 ────────────────────────────────────────────────────
 
+// Browser Rendering 으로 네이버 검색 → 후보 단지 목록 전체 반환.
+async function handleSearch(env, keyword) {
+  const kw = (keyword || '').trim();
+  if (!kw) return json({ error: 'keyword 필요' }, 400);
+  const complexes = await withNaverSession(env, (sess) => searchComplexes(sess, kw));
+  return json({ complexes });
+}
+
+// watchlist 에 단지 1건 추가 (중복 complexNo 방지). 성공 시 { added } 반환.
+async function addToWatchlist(env, complexNo, name, lawdCd, pinColor) {
+  const wl = await getWatchlist(env);
+  if (wl.complexes.some((c) => String(c.complexNo) === complexNo)) {
+    return json({ error: '이미 watchlist 에 있음', complexNo, name });
+  }
+  const added = {
+    complexNo,
+    name,
+    lawdCd: lawdCd || '',
+    pinColor: pinColor || 'yellow',
+  };
+  wl.complexes.push(added);
+  await putWatchlist(env, wl);
+  return json({ added });
+}
+
 async function handleWatchlistAdd(env, body) {
+  // 신규 경로: 검색 결과를 골라 넘김 → 브라우저 없이 즉시 추가.
+  if (body && body.complexNo != null) {
+    const complexNo = String(body.complexNo);
+    const name = body.name != null ? String(body.name) : complexNo;
+    const lawdCd = body.lawdCd != null ? String(body.lawdCd) : '';
+    const pinColor = body.pinColor ? String(body.pinColor) : 'yellow';
+    return await addToWatchlist(env, complexNo, name, lawdCd, pinColor);
+  }
+
+  // 하위호환: keyword 만 오면 검색해서 첫 결과 추가.
   const keyword = (body && body.keyword ? String(body.keyword) : '').trim();
-  if (!keyword) return json({ error: 'keyword 필요' }, 400);
+  if (!keyword) return json({ error: 'complexNo 또는 keyword 필요' }, 400);
 
   const found = await withNaverSession(env, (sess) => searchComplex(sess, keyword));
   if (!found) return json({ error: `"${keyword}" 검색 결과 없음` }, 404);
 
   const complexNo = String(found.complexNo);
-  const cortarNo = String(found.cortarNo || '');
-  const lawdCd = cortarNo.slice(0, 5);
-
-  const wl = await getWatchlist(env);
-  if (wl.complexes.some((c) => String(c.complexNo) === complexNo)) {
-    return json({ error: '이미 watchlist 에 있음', complexNo, name: found.complexName });
-  }
-
-  const added = { complexNo, name: found.complexName, lawdCd, pinColor: 'yellow' };
-  wl.complexes.push(added);
-  await putWatchlist(env, wl);
-  return json({ added });
+  const lawdCd = String(found.cortarNo || '').slice(0, 5);
+  return await addToWatchlist(env, complexNo, found.complexName, lawdCd, 'yellow');
 }
 
 async function handleWatchlistRemove(env, body) {
@@ -398,6 +447,9 @@ export default {
       }
       if (pathname === '/api/watchlist' && request.method === 'GET') {
         return json(await getWatchlist(env));
+      }
+      if (pathname === '/api/search' && request.method === 'GET') {
+        return await handleSearch(env, url.searchParams.get('keyword') || '');
       }
       if (pathname === '/api/watchlist/add' && request.method === 'POST') {
         return await handleWatchlistAdd(env, await request.json().catch(() => ({})));

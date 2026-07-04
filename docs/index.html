@@ -49,15 +49,6 @@
             <span id="refreshLabel">🔄 호가 갱신</span>
           </button>
         </div>
-        <div class="add-box" id="addBox">
-          <div class="add-form" id="addForm" hidden>
-            <input id="addInput" type="text" placeholder="단지명 입력 (예: 철산래미안자이)" autocomplete="off" />
-            <button class="btn-primary btn-add-submit" id="addSubmit" type="button">
-              <span class="spinner" id="addSpinner" hidden></span>
-              <span id="addSubmitLabel">추가</span>
-            </button>
-          </div>
-        </div>
         <button class="btn-mode btn-compare-inline" id="compareToggle" type="button">⚖️ 비교하기</button>
       </div>
       <div class="compare-hint" id="compareHint" hidden>비교할 단지 2개를 선택해</div>
@@ -107,6 +98,34 @@
         <button class="modal-close" id="compareClose" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body" id="compareBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== 단지 검색 오버레이 (네이버식 검색→후보 선택→추가) ===== -->
+  <div class="modal-overlay search-overlay" id="searchOverlay" hidden>
+    <div class="modal search-modal">
+      <div class="modal-head">
+        <div class="modal-title">🔍 단지 검색</div>
+        <button class="modal-close" id="searchClose" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body search-body">
+        <form class="search-bar" id="searchForm">
+          <input id="searchKeyword" type="search" placeholder="온수역, 철산래미안, 광명 …" autocomplete="off" enterkeyhint="search" />
+          <button class="btn-primary search-go" id="searchGo" type="submit">
+            <span class="spinner" id="searchSpinner" hidden></span>
+            <span id="searchGoLabel">검색</span>
+          </button>
+        </form>
+        <div class="search-status" id="searchStatus" hidden></div>
+        <div class="search-filter" id="searchFilter" hidden>
+          <label class="filter-toggle">
+            <input type="checkbox" id="aptOnly" checked />
+            <span class="ft-track"><span class="ft-thumb"></span></span>
+            <span class="ft-label">아파트만 보기</span>
+          </label>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+      </div>
     </div>
   </div>
 
