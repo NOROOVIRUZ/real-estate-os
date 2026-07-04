@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#FF003C" />
+  <title>Real Estate OS · 관심단지</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔴</text></svg>" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-emoji">🏠</span>
+        <div>
+          <div class="brand-title">Real Estate OS</div>
+          <div class="brand-sub">관심 단지 · 호가 · 실거래 트래커</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="data-badge" id="dataBadge" hidden>샘플 데이터</span>
+        <button class="btn-mode" id="compareToggle" type="button">⚖️ 비교하기</button>
+        <button class="btn-icon" id="settingsBtn" type="button" aria-label="설정">⚙️ 설정</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout" id="layout">
+    <!-- ===== 좌: 즐겨찾기 ===== -->
+    <aside class="panel panel-list" id="panelList">
+      <div class="list-controls">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input id="searchInput" type="search" placeholder="단지명 · 주소 검색" autocomplete="off" />
+          <button id="clearSearch" class="clear-btn" aria-label="검색 지우기" hidden>✕</button>
+        </div>
+        <div class="sort-box">
+          <select id="sortSelect">
+            <option value="rating_desc">★ 별점순</option>
+            <option value="name_asc">이름순</option>
+          </select>
+        </div>
+      </div>
+      <div class="compare-hint" id="compareHint" hidden>비교할 단지 2개를 선택해</div>
+      <div class="result-info"><span id="listCount">—</span></div>
+      <div class="complex-list" id="complexList"></div>
+      <div class="list-empty" id="listEmpty" hidden></div>
+      <div class="add-note">
+        단지 추가는 터미널에서<br />
+        <code>node collector/collector.js add "단지명"</code><br />
+        실행 후 새로고침
+      </div>
+    </aside>
+
+    <!-- ===== 중: 지도 ===== -->
+    <section class="panel panel-map" id="panelMap">
+      <div id="map" class="map"></div>
+      <div class="map-placeholder" id="mapPlaceholder">
+        <div class="ph-emoji">🗺️</div>
+        <div class="ph-title">지도를 표시할 수 없어</div>
+        <div class="ph-sub">설정에서 Kakao 키를 입력하세요</div>
+        <button class="btn-mode" id="mapSettingsBtn" type="button">⚙️ 설정 열기</button>
+      </div>
+    </section>
+
+    <!-- ===== 우: 상세 ===== -->
+    <aside class="panel panel-detail" id="panelDetail">
+      <div class="detail-empty" id="detailEmpty">
+        <div class="ph-emoji">👈</div>
+        <div class="ph-title">단지를 선택해</div>
+        <div class="ph-sub">왼쪽 목록이나 지도 마커를 클릭</div>
+      </div>
+      <div class="detail-body" id="detailBody" hidden></div>
+    </aside>
+  </main>
+
+  <!-- ===== 비교 모달 ===== -->
+  <div class="modal-overlay" id="compareModal" hidden>
+    <div class="modal modal-wide">
+      <div class="modal-head">
+        <div class="modal-title">⚖️ 단지 비교</div>
+        <button class="modal-close" id="compareClose" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body" id="compareBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== 설정 모달 ===== -->
+  <div class="modal-overlay" id="settingsModal" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title">⚙️ 설정 · API 키</div>
+        <button class="modal-close" id="settingsClose" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="settings-desc">키는 이 기기의 브라우저(localStorage)에만 저장돼. 서버로 전송되지 않아.</p>
+        <div class="field">
+          <label for="kakaoKey">Kakao Maps JavaScript 키</label>
+          <input id="kakaoKey" type="text" placeholder="예: 1a2b3c..." autocomplete="off" spellcheck="false" />
+          <a class="field-link" href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com 에서 발급 →</a>
+          <p class="field-hint">🔒 developers.kakao.com에서 이 키의 허용 도메인을 등록하면 키가 노출돼도 다른 사이트에서 못 씁니다.</p>
+        </div>
+        <p class="settings-desc">국토부 실거래는 수집기(collector/.env)에서 처리됩니다. 브라우저에 국토부 키를 넣지 않아요.</p>
+        <div class="settings-actions">
+          <button class="btn-primary" id="settingsSave" type="button">저장</button>
+          <span class="saved-flag" id="settingsSaved" hidden>저장됨 ✓</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>

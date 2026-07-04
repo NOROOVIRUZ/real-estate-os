@@ -1,0 +1,17 @@
+{
+  "name": "reos-collector",
+  "version": "1.0.0",
+  "description": "Real Estate OS 수집기 — 네이버부동산 호가를 watchlist 기준으로 긁어 data.json 생성",
+  "type": "commonjs",
+  "bin": {
+    "reos-collector": "collector.js"
+  },
+  "scripts": {
+    "collect": "node collector.js",
+    "add": "node collector.js add",
+    "list": "node collector.js list"
+  },
+  "dependencies": {
+    "playwright-core": "1.61.1"
+  }
+}

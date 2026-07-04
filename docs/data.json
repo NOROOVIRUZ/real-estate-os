@@ -1,0 +1,433 @@
+{
+  "generatedAt": "2026-07-04T01:57:37.276Z",
+  "complexes": [
+    {
+      "complexNo": "25902",
+      "name": "철산래미안자이",
+      "address": "경기도 광명시 철산동",
+      "lat": 37.471957,
+      "lng": 126.874532,
+      "householdCount": 2072,
+      "useApproveYmd": "20091126",
+      "pinColor": "yellow",
+      "lawdCd": "41210",
+      "listings": [
+        {
+          "tradeType": "매매",
+          "price": "12억 6,000",
+          "priceNum": 126000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남향",
+          "confirmYmd": "20260703",
+          "articleNo": "2635819684"
+        },
+        {
+          "tradeType": "매매",
+          "price": "12억 6,000",
+          "priceNum": 126000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남향",
+          "confirmYmd": "20260703",
+          "articleNo": "2635741119"
+        },
+        {
+          "tradeType": "매매",
+          "price": "12억 6,000",
+          "priceNum": 126000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남동향",
+          "confirmYmd": "20260703",
+          "articleNo": "2635700154"
+        },
+        {
+          "tradeType": "매매",
+          "price": "12억 6,000",
+          "priceNum": 126000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남향",
+          "confirmYmd": "20260702",
+          "articleNo": "2635659904"
+        },
+        {
+          "tradeType": "매매",
+          "price": "12억 6,000",
+          "priceNum": 126000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남향",
+          "confirmYmd": "20260702",
+          "articleNo": "2635650324"
+        },
+        {
+          "tradeType": "매매",
+          "price": "12억 6,000",
+          "priceNum": 126000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남향",
+          "confirmYmd": "20260702",
+          "articleNo": "2635560094"
+        },
+        {
+          "tradeType": "매매",
+          "price": "12억 6,000",
+          "priceNum": 126000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남향",
+          "confirmYmd": "20260702",
+          "articleNo": "2635552171"
+        },
+        {
+          "tradeType": "매매",
+          "price": "12억 6,000",
+          "priceNum": 126000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남향",
+          "confirmYmd": "20260701",
+          "articleNo": "2635365050"
+        },
+        {
+          "tradeType": "매매",
+          "price": "12억 6,000",
+          "priceNum": 126000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남향",
+          "confirmYmd": "20260630",
+          "articleNo": "2635211710"
+        },
+        {
+          "tradeType": "매매",
+          "price": "12억 6,000",
+          "priceNum": 126000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남동향",
+          "confirmYmd": "20260629",
+          "articleNo": "2634883442"
+        },
+        {
+          "tradeType": "매매",
+          "price": "13억 5,000",
+          "priceNum": 135000,
+          "area": "84/59",
+          "floor": "11/24",
+          "direction": "남향",
+          "confirmYmd": "20260630",
+          "articleNo": "2635090796"
+        },
+        {
+          "tradeType": "매매",
+          "price": "13억 5,000",
+          "priceNum": 135000,
+          "area": "84/59",
+          "floor": "20/24",
+          "direction": "남향",
+          "confirmYmd": "20260627",
+          "articleNo": "2634649794"
+        },
+        {
+          "tradeType": "매매",
+          "price": "13억 5,000",
+          "priceNum": 135000,
+          "area": "84/59",
+          "floor": "11/24",
+          "direction": "남향",
+          "confirmYmd": "20260626",
+          "articleNo": "2634364750"
+        },
+        {
+          "tradeType": "매매",
+          "price": "13억 5,000",
+          "priceNum": 135000,
+          "area": "84/59",
+          "floor": "중/24",
+          "direction": "남향",
+          "confirmYmd": "20260611",
+          "articleNo": "2631658087"
+        },
+        {
+          "tradeType": "매매",
+          "price": "13억 7,000",
+          "priceNum": 137000,
+          "area": "110/84",
+          "floor": "10/31",
+          "direction": "남동향",
+          "confirmYmd": "20260630",
+          "articleNo": "2635026441"
+        },
+        {
+          "tradeType": "매매",
+          "price": "14억",
+          "priceNum": 140000,
+          "area": "110/84",
+          "floor": "6/31",
+          "direction": "남동향",
+          "confirmYmd": "20260701",
+          "articleNo": "2635326045"
+        },
+        {
+          "tradeType": "매매",
+          "price": "14억",
+          "priceNum": 140000,
+          "area": "110/84",
+          "floor": "7/28",
+          "direction": "남향",
+          "confirmYmd": "20260630",
+          "articleNo": "2635135052"
+        },
+        {
+          "tradeType": "매매",
+          "price": "14억",
+          "priceNum": 140000,
+          "area": "110/84",
+          "floor": "7/28",
+          "direction": "남향",
+          "confirmYmd": "20260630",
+          "articleNo": "2635108107"
+        },
+        {
+          "tradeType": "매매",
+          "price": "14억",
+          "priceNum": 140000,
+          "area": "110/84",
+          "floor": "7/28",
+          "direction": "남향",
+          "confirmYmd": "20260630",
+          "articleNo": "2635064140"
+        },
+        {
+          "tradeType": "매매",
+          "price": "14억",
+          "priceNum": 140000,
+          "area": "110/84",
+          "floor": "7/28",
+          "direction": "남향",
+          "confirmYmd": "20260627",
+          "articleNo": "2634644366"
+        }
+      ],
+      "deals": []
+    },
+    {
+      "complexNo": "22814",
+      "name": "광명푸르지오",
+      "address": "경기도 광명시 철산동",
+      "lat": 37.473779,
+      "lng": 126.864409,
+      "householdCount": 426,
+      "useApproveYmd": "20071207",
+      "pinColor": "yellow",
+      "lawdCd": "41210",
+      "listings": [
+        {
+          "tradeType": "매매",
+          "price": "9억 3,000",
+          "priceNum": 93000,
+          "area": "82/59",
+          "floor": "2/17",
+          "direction": "남서향",
+          "confirmYmd": "20260701",
+          "articleNo": "2635398378"
+        },
+        {
+          "tradeType": "매매",
+          "price": "10억 6,000",
+          "priceNum": 106000,
+          "area": "109/84",
+          "floor": "2/16",
+          "direction": "남향",
+          "confirmYmd": "20260627",
+          "articleNo": "2634544111"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억",
+          "priceNum": 110000,
+          "area": "109/84",
+          "floor": "4/23",
+          "direction": "남향",
+          "confirmYmd": "20260702",
+          "articleNo": "2635627733"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억",
+          "priceNum": 110000,
+          "area": "156/129",
+          "floor": "16/16",
+          "direction": "남서향",
+          "confirmYmd": "20260624",
+          "articleNo": "2633975651"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 2,000",
+          "priceNum": 112000,
+          "area": "109/84",
+          "floor": "16/16",
+          "direction": "남향",
+          "confirmYmd": "20260704",
+          "articleNo": "2635957623"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 2,000",
+          "priceNum": 112000,
+          "area": "109/84",
+          "floor": "16/16",
+          "direction": "남향",
+          "confirmYmd": "20260703",
+          "articleNo": "2635792228"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 3,000",
+          "priceNum": 113000,
+          "area": "109/84",
+          "floor": "4/23",
+          "direction": "남향",
+          "confirmYmd": "20260704",
+          "articleNo": "2635957589"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 3,000",
+          "priceNum": 113000,
+          "area": "109/84",
+          "floor": "4/23",
+          "direction": "남향",
+          "confirmYmd": "20260703",
+          "articleNo": "2635930919"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 3,000",
+          "priceNum": 113000,
+          "area": "109/84",
+          "floor": "4/23",
+          "direction": "남향",
+          "confirmYmd": "20260703",
+          "articleNo": "2635703768"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 3,000",
+          "priceNum": 113000,
+          "area": "109/84",
+          "floor": "4/23",
+          "direction": "남향",
+          "confirmYmd": "20260702",
+          "articleNo": "2635611497"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 3,000",
+          "priceNum": 113000,
+          "area": "109/84",
+          "floor": "4/23",
+          "direction": "남향",
+          "confirmYmd": "20260702",
+          "articleNo": "2635592852"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 5,000",
+          "priceNum": 115000,
+          "area": "109/84",
+          "floor": "9/25",
+          "direction": "서향",
+          "confirmYmd": "20260704",
+          "articleNo": "2635957603"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 5,000",
+          "priceNum": 115000,
+          "area": "109/84",
+          "floor": "9/25",
+          "direction": "남서향",
+          "confirmYmd": "20260703",
+          "articleNo": "2635872992"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 5,000",
+          "priceNum": 115000,
+          "area": "109/84",
+          "floor": "7/18",
+          "direction": "서향",
+          "confirmYmd": "20260702",
+          "articleNo": "2635630332"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 5,000",
+          "priceNum": 115000,
+          "area": "156/129",
+          "floor": "16/16",
+          "direction": "남서향",
+          "confirmYmd": "20260702",
+          "articleNo": "2635450984"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 5,000",
+          "priceNum": 115000,
+          "area": "156/129",
+          "floor": "16/16",
+          "direction": "남서향",
+          "confirmYmd": "20260701",
+          "articleNo": "2635332860"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 5,000",
+          "priceNum": 115000,
+          "area": "156/129",
+          "floor": "16/16",
+          "direction": "남서향",
+          "confirmYmd": "20260701",
+          "articleNo": "2635330976"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 5,000",
+          "priceNum": 115000,
+          "area": "156/129",
+          "floor": "16/16",
+          "direction": "남서향",
+          "confirmYmd": "20260701",
+          "articleNo": "2635325937"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 5,000",
+          "priceNum": 115000,
+          "area": "109/84",
+          "floor": "7/18",
+          "direction": "남서향",
+          "confirmYmd": "20260701",
+          "articleNo": "2635325284"
+        },
+        {
+          "tradeType": "매매",
+          "price": "11억 5,000",
+          "priceNum": 115000,
+          "area": "109/84",
+          "floor": "7/18",
+          "direction": "남서향",
+          "confirmYmd": "20260701",
+          "articleNo": "2635245119"
+        }
+      ],
+      "deals": []
+    }
+  ]
+}
