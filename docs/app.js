@@ -2,7 +2,7 @@
 
 /* ============================================================
    Real Estate OS — 프론트엔드 단일 스크립트
-   순수 정적 · localStorage · NAVER Maps (NCP)
+   순수 정적 · localStorage · Kakao Maps
    실거래(국토부)는 수집기가 data.json에 미리 넣어줌 → 프론트는 표시만
    ============================================================ */
 
@@ -25,7 +25,7 @@ const LS = {
   getNum(k, d = 0) { const v = this.get(k); return v === null || v === '' ? d : Number(v); },
 };
 const K = {
-  naver: 'reos:apikey:naver',
+  kakao: 'reos:apikey:kakao',
   notes: (no) => `reos:notes:${no}`,
   rating: (no) => `reos:rating:${no}`,
   target: (no) => `reos:target:${no}`,
@@ -49,7 +49,7 @@ const state = {
   view: 'list',       // 모바일 뷰: 'list' | 'map'
   detailOpen: false,  // 모바일 상세 오버레이 열림 여부
   map: null,
-  markers: {},      // complexNo -> naver.maps.Marker
+  markers: {},      // complexNo -> kakao.maps.Marker
   mapReady: false,
 };
 
@@ -101,10 +101,8 @@ function setView(v) {
   if (state.compareMode) setCompareMode(false);
   updateTabBar(v);
   if (v === 'map' && state.mapReady && state.map) {
-    // display:none 이었다가 표시되면 네이버 지도 리사이즈 재계산 필요
-    setTimeout(() => {
-      try { naver.maps.Event.trigger(state.map, 'resize'); renderMarkers(); } catch {}
-    }, 60);
+    // display:none 이었다가 표시되면 Kakao 지도 리레이아웃 필요
+    setTimeout(() => { try { state.map.relayout(); renderMarkers(); } catch {} }, 60);
   }
 }
 
@@ -275,7 +273,7 @@ function selectComplex(no, focusMap) {
   if (focusMap && state.mapReady) {
     const c = state.complexes.find((x) => x.complexNo === no);
     if (c && c.lat && c.lng) {
-      state.map.panTo(new naver.maps.LatLng(c.lat, c.lng));
+      state.map.panTo(new kakao.maps.LatLng(c.lat, c.lng));
     }
   }
 }
@@ -469,49 +467,50 @@ function renderChart(deals) {
 }
 
 // ============================================================
-//  네이버 지도 (NAVER Cloud Platform Maps JS v3)
+//  Kakao 지도
 // ============================================================
-function pinHtml(color) {
+function pinImageSrc(color) {
   const map = { red: '#ff003c', yellow: '#f59f00', green: '#12b886', blue: '#3182f6' };
   const fill = map[color] || map.red;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="40" viewBox="0 0 30 40" style="display:block">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="40" viewBox="0 0 30 40">
     <path d="M15 0C6.7 0 0 6.7 0 15c0 10 15 25 15 25s15-15 15-25C30 6.7 23.3 0 15 0z" fill="${fill}"/>
     <circle cx="15" cy="15" r="6" fill="#fff"/></svg>`;
+  return 'data:image/svg+xml;base64,' + btoa(svg);
 }
 
-function loadNaverSdk() {
-  const key = LS.get(K.naver, '');
+function loadKakaoSdk() {
+  const key = LS.get(K.kakao, '');
   const ph = $('mapPlaceholder');
   if (!key) { ph.hidden = false; return; }
 
   ph.hidden = true;
-  // 이미 로드됨 (네이버는 autoload/load() 개념 없음 — window.naver.maps 즉시 사용)
-  if (window.naver && window.naver.maps) { initMap(); return; }
+  // 이미 로드됨
+  if (window.kakao && window.kakao.maps) { initMap(); return; }
 
-  const existing = document.getElementById('naverSdk');
+  const existing = document.getElementById('kakaoSdk');
   if (existing) existing.remove();
 
   const s = document.createElement('script');
-  s.id = 'naverSdk';
-  s.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(key)}`;
+  s.id = 'kakaoSdk';
+  s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(key)}&autoload=false`;
   s.onload = () => {
-    if (window.naver && window.naver.maps) {
-      initMap();
+    if (window.kakao && window.kakao.maps) {
+      kakao.maps.load(() => initMap());
     } else {
       ph.hidden = false;
     }
   };
   s.onerror = () => {
     ph.hidden = false;
-    $('mapPlaceholder').querySelector('.ph-sub').textContent = '네이버 지도 SDK 로드 실패 — 키를 확인해';
+    $('mapPlaceholder').querySelector('.ph-sub').textContent = 'Kakao SDK 로드 실패 — 키를 확인해';
   };
   document.head.appendChild(s);
 }
 
 function initMap() {
   const el = $('map');
-  const center = new naver.maps.LatLng(37.48, 126.84); // 광명/철산 근처
-  state.map = new naver.maps.Map(el, { center, zoom: 13 });
+  const center = new kakao.maps.LatLng(37.48, 126.84); // 광명/철산 근처
+  state.map = new kakao.maps.Map(el, { center, level: 6 });
   state.mapReady = true;
   renderMarkers();
 }
@@ -521,29 +520,27 @@ function renderMarkers() {
   Object.values(state.markers).forEach((m) => m.setMap(null));
   state.markers = {};
 
-  const bounds = new naver.maps.LatLngBounds();
+  const bounds = new kakao.maps.LatLngBounds();
   let has = false;
   state.complexes.forEach((c) => {
     if (!c.lat || !c.lng) return;
     has = true;
-    const pos = new naver.maps.LatLng(c.lat, c.lng);
-    const marker = new naver.maps.Marker({
-      position: pos,
-      map: state.map,
-      title: c.name,
-      icon: {
-        content: pinHtml(c.pinColor),
-        anchor: new naver.maps.Point(15, 40),
-      },
-    });
-    naver.maps.Event.addListener(marker, 'click', () => {
+    const pos = new kakao.maps.LatLng(c.lat, c.lng);
+    const img = new kakao.maps.MarkerImage(
+      pinImageSrc(c.pinColor),
+      new kakao.maps.Size(30, 40),
+      { offset: new kakao.maps.Point(15, 40) }
+    );
+    const marker = new kakao.maps.Marker({ position: pos, image: img, title: c.name });
+    marker.setMap(state.map);
+    kakao.maps.event.addListener(marker, 'click', () => {
       if (state.compareMode) toggleCompareSelection(c.complexNo);
       else selectComplex(c.complexNo, true);
     });
     state.markers[c.complexNo] = marker;
     bounds.extend(pos);
   });
-  if (has) state.map.fitBounds(bounds);
+  if (has) state.map.setBounds(bounds);
 }
 
 // ============================================================
@@ -603,22 +600,22 @@ function openCompareModal() {
 //  설정 모달
 // ============================================================
 function openSettings() {
-  $('naverKey').value = LS.get(K.naver, '');
+  $('kakaoKey').value = LS.get(K.kakao, '');
   $('settingsSaved').hidden = true;
   $('settingsModal').hidden = false;
 }
 function saveSettings() {
-  const prevNaver = LS.get(K.naver, '');
-  const newNaver = $('naverKey').value.trim();
-  LS.set(K.naver, newNaver);
+  const prevKakao = LS.get(K.kakao, '');
+  const newKakao = $('kakaoKey').value.trim();
+  LS.set(K.kakao, newKakao);
   $('settingsSaved').hidden = false;
   setTimeout(() => { $('settingsSaved').hidden = true; }, 1500);
 
-  // 즉시 반영: 네이버 키가 바뀌었으면 지도 재로드
-  if (newNaver !== prevNaver) {
+  // 즉시 반영: Kakao 키가 바뀌었으면 지도 재로드
+  if (newKakao !== prevKakao) {
     state.mapReady = false;
     state.markers = {};
-    loadNaverSdk();
+    loadKakaoSdk();
   }
 }
 
@@ -987,7 +984,7 @@ async function boot() {
   await loadData();
   $('dataBadge').hidden = !state.isSample;
   renderList();
-  loadNaverSdk();
+  loadKakaoSdk();
 }
 
 document.addEventListener('DOMContentLoaded', boot);

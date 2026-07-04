@@ -63,7 +63,7 @@
       <div class="map-placeholder" id="mapPlaceholder">
         <div class="ph-emoji">🗺️</div>
         <div class="ph-title">지도를 표시할 수 없어</div>
-        <div class="ph-sub">설정에서 네이버 지도 키를 입력하세요</div>
+        <div class="ph-sub">설정에서 Kakao 키를 입력하세요</div>
         <button class="btn-mode" id="mapSettingsBtn" type="button">⚙️ 설정 열기</button>
       </div>
     </section>
@@ -139,10 +139,10 @@
       <div class="modal-body">
         <p class="settings-desc">키는 이 기기의 브라우저(localStorage)에만 저장돼. 서버로 전송되지 않아.</p>
         <div class="field">
-          <label for="naverKey">네이버 지도 키 (ncpKeyId)</label>
-          <input id="naverKey" type="text" placeholder="예: abcd1234efgh..." autocomplete="off" spellcheck="false" />
-          <a class="field-link" href="https://console.ncloud.com" target="_blank" rel="noopener">console.ncloud.com → AI·NAVER API → Maps → Application 등록 → 인증정보의 Client ID(=ncpKeyId) →</a>
-          <p class="field-hint">🔒 네이버 클라우드 콘솔에서 이 앱의 <strong>Web 서비스 URL</strong>에 <code>https://real-estate-os.noroovirus-dev.workers.dev</code> 를 등록해야 지도가 떠(포트·경로 없이 호스트만).</p>
+          <label for="kakaoKey">Kakao Maps JavaScript 키</label>
+          <input id="kakaoKey" type="text" placeholder="예: 1a2b3c..." autocomplete="off" spellcheck="false" />
+          <a class="field-link" href="https://developers.kakao.com" target="_blank" rel="noopener">developers.kakao.com 에서 발급 →</a>
+          <p class="field-hint">🔒 developers.kakao.com에서 이 키의 허용 도메인을 등록하면 키가 노출돼도 다른 사이트에서 못 씁니다.</p>
         </div>
         <p class="settings-desc">국토부 실거래 키는 서버(Cloudflare Worker)에만 저장돼 처리됩니다. 브라우저에 국토부 키를 넣지 않아요.</p>
         <div class="settings-actions">
