@@ -1,10 +1,15 @@
 'use strict';
 
-const CACHE = 'reos-v1';
-const SHELL = ['./', './index.html', './app.js', './styles.css', './icon.svg'];
+const CACHE = 'reos-v2';
+const SHELL = ['./index.html', './app.js', './styles.css', './icon.svg', './icon-192.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+  // 일부 실패해도 설치 계속 (addAll은 하나라도 실패 시 전체 실패)
+  e.waitUntil(
+    caches.open(CACHE).then(c =>
+      Promise.allSettled(SHELL.map(url => c.add(url)))
+    )
+  );
   self.skipWaiting();
 });
 
@@ -19,12 +24,21 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  const url = new URL(e.request.url);
-  // 외부 리소스 & API 는 항상 네트워크
+  let url;
+  try { url = new URL(e.request.url); } catch { return; }
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) return;
 
+  // 네트워크 우선, 실패 시 캐시 폴백
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request)
+      .then(r => {
+        if (r.ok) {
+          const clone = r.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return r;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
