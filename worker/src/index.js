@@ -488,16 +488,24 @@ async function handleCollect(env) {
         }
 
         const articles = await fetchArticles(sess, c.complexNo);
-        entry.listings = articles.map((a) => ({
-          tradeType: a.tradeTypeName || null,
-          price: a.dealOrWarrantPrc || null,
-          priceNum: parsePriceNum(a.dealOrWarrantPrc),
-          area: [a.area1, a.area2].filter((v) => v != null).join('/'),
-          floor: a.floorInfo || null,
-          direction: a.direction || null,
-          confirmYmd: a.articleConfirmYmd || null,
-          articleNo: a.articleNo != null ? String(a.articleNo) : null,
-        }));
+        const dedup = new Set();
+        entry.listings = articles
+          .map((a) => ({
+            tradeType: a.tradeTypeName || null,
+            price: a.dealOrWarrantPrc || null,
+            priceNum: parsePriceNum(a.dealOrWarrantPrc),
+            area: [a.area1, a.area2].filter((v) => v != null).join('/'),
+            floor: a.floorInfo || null,
+            direction: a.direction || null,
+            confirmYmd: a.articleConfirmYmd || null,
+            articleNo: a.articleNo != null ? String(a.articleNo) : null,
+          }))
+          .filter((l) => {
+            const k = `${l.priceNum}-${l.area}-${l.floor}`;
+            if (dedup.has(k)) return false;
+            dedup.add(k);
+            return true;
+          });
       } catch (err) {
         console.warn(`[${i + 1}] ${c.name} 호가 수집 실패: ${err.message}`);
       }
