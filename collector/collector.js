@@ -511,16 +511,25 @@ async function cmdCollect() {
         }
 
         const articles = await fetchArticles(sess, c.complexNo);
-        entry.listings = articles.map((a) => ({
-          tradeType: a.tradeTypeName || null,
-          price: a.dealOrWarrantPrc || null,
-          priceNum: parsePriceNum(a.dealOrWarrantPrc),
-          area: [a.area1, a.area2].filter((v) => v != null).join('/'),
-          floor: a.floorInfo || null,
-          direction: a.direction || null,
-          confirmYmd: a.articleConfirmYmd || null,
-          articleNo: a.articleNo != null ? String(a.articleNo) : null,
-        }));
+        // 중개사만 다른 중복 매물(가격+면적+층 동일) 제거
+        const dedup = new Set();
+        entry.listings = articles
+          .map((a) => ({
+            tradeType: a.tradeTypeName || null,
+            price: a.dealOrWarrantPrc || null,
+            priceNum: parsePriceNum(a.dealOrWarrantPrc),
+            area: [a.area1, a.area2].filter((v) => v != null).join('/'),
+            floor: a.floorInfo || null,
+            direction: a.direction || null,
+            confirmYmd: a.articleConfirmYmd || null,
+            articleNo: a.articleNo != null ? String(a.articleNo) : null,
+          }))
+          .filter((l) => {
+            const k = `${l.priceNum}-${l.area}-${l.floor}`;
+            if (dedup.has(k)) return false;
+            dedup.add(k);
+            return true;
+          });
 
         if (entry.listings.length === 0) {
           console.warn(`${prefix} — ⚠ 매물 0건`);

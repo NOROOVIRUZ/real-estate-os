@@ -336,7 +336,11 @@ function renderDetail(no) {
   const topName = $('detailTopName');
   if (topName) topName.textContent = c.name;
 
-  const listings = (c.listings || []).slice().sort((a, b) => (a.priceNum || 0) - (b.priceNum || 0));
+  // ponytail: 같은 가격+면적+층은 중개사만 다른 중복 매물 → 하나만
+  const seen = new Set();
+  const listings = (c.listings || [])
+    .filter((l) => { const k = `${l.priceNum}-${l.area}-${l.floor}`; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => (a.priceNum || 0) - (b.priceNum || 0));
   const min = listings.length ? listings[0].priceNum : null;
   const max = listings.length ? listings[listings.length - 1].priceNum : null;
   const target = LS.getNum(K.target(c.complexNo), 0);

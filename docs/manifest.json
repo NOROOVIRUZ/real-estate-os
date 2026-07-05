@@ -1,0 +1,19 @@
+{
+  "name": "NOROO HOME",
+  "short_name": "NOROO HOME",
+  "description": "관심 단지 호가 트래커",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#3182F6",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
