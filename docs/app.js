@@ -1513,16 +1513,39 @@ function bindEvents() {
   // 사진 전체화면 뷰어 (정적 요소)
   bindPhotoViewer();
 
-  // PWA 뒤로가기 가드: 제스처 1번 → 토스트, 2번 → 종료
+  // PWA 뒤로가기: 열린 오버레이 닫기 → 루트에서 2번에 종료
   if (window.matchMedia('(display-mode: standalone)').matches) {
-    history.pushState(null, '', location.href);
+    history.pushState(null, '');
     let backOnce = false;
     window.addEventListener('popstate', () => {
-      if (backOnce) return;
-      backOnce = true;
-      history.pushState(null, '', location.href);
-      toast('한 번 더 누르면 종료돼', 'info', 2000);
-      setTimeout(() => { backOnce = false; }, 2000);
+      // 열린 것부터 닫기 (닫은 후 엔트리 다시 추가해서 다음 뒤로가기 대비)
+      if (!$('photoViewer').hidden) {
+        $('photoViewer').hidden = true; photoState.viewerIdx = -1;
+        history.pushState(null, ''); return;
+      }
+      if (!$('searchOverlay').hidden) {
+        $('searchOverlay').hidden = true;
+        history.pushState(null, ''); return;
+      }
+      if (!$('compareModal').hidden) {
+        $('compareModal').hidden = true;
+        history.pushState(null, ''); return;
+      }
+      if (!$('settingsModal').hidden) {
+        $('settingsModal').hidden = true;
+        history.pushState(null, ''); return;
+      }
+      if (state.detailOpen) {
+        closeDetail();
+        history.pushState(null, ''); return;
+      }
+      // 루트 → 종료 가드
+      if (!backOnce) {
+        backOnce = true;
+        history.pushState(null, '');
+        toast('한 번 더 누르면 종료돼', 'info', 2000);
+        setTimeout(() => { backOnce = false; }, 2000);
+      }
     });
   }
 }
