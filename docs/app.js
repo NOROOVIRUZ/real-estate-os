@@ -1512,6 +1512,19 @@ function bindEvents() {
 
   // 사진 전체화면 뷰어 (정적 요소)
   bindPhotoViewer();
+
+  // PWA 뒤로가기 가드: 제스처 1번 → 토스트, 2번 → 종료
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    history.pushState(null, '', location.href);
+    let backOnce = false;
+    window.addEventListener('popstate', () => {
+      if (backOnce) return;
+      backOnce = true;
+      history.pushState(null, '', location.href);
+      toast('한 번 더 누르면 종료돼', 'info', 2000);
+      setTimeout(() => { backOnce = false; }, 2000);
+    });
+  }
 }
 
 async function boot() {
